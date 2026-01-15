@@ -6,7 +6,7 @@ blank lines, and include directives.
 """
 
 import re
-from typing import List
+from typing import List, Set
 
 
 def extract_package_name(constraint: str) -> str:
@@ -122,3 +122,86 @@ def parse_constraints(content: str) -> List[str]:
         constraints.append(line)
 
     return constraints
+
+
+def _get_package_names(constraints: List[str]) -> Set[str]:
+    """
+    Get a set of package names from a list of constraints.
+
+    Args:
+        constraints: List of constraint strings.
+
+    Returns:
+        Set of normalized package names.
+
+    Examples:
+        >>> _get_package_names(['requests==2.31.0', 'flask>=2.0.0'])
+        {'requests', 'flask'}
+    """
+    return {extract_package_name(c) for c in constraints}
+
+
+def merge_constraints(
+    base_constraints: List[str],
+    custom_constraints: List[str],
+) -> List[str]:
+    """
+    Merge base and custom constraints with custom taking precedence.
+
+    When the same package appears in both lists, the custom constraint version
+    is used. Packages unique to each list are all included in the result.
+    Package names are compared case-insensitively.
+
+    Args:
+        base_constraints: List of constraint strings from the base file.
+        custom_constraints: List of constraint strings from the custom file
+            that should take precedence.
+
+    Returns:
+        A merged list of constraint strings, sorted alphabetically by package
+        name. Custom constraints override base constraints for packages that
+        appear in both lists.
+
+    Examples:
+        >>> merge_constraints(['requests==1.0'], ['requests==2.0'])
+        ['requests==2.0']
+
+        >>> merge_constraints(['flask==2.0.0'], ['django==4.0.0'])
+        ['django==4.0.0', 'flask==2.0.0']
+
+        >>> merge_constraints(
+        ...     ['requests==1.0', 'flask==2.0'],
+        ...     ['requests==2.0', 'django==4.0']
+        ... )
+        ['django==4.0', 'flask==2.0', 'requests==2.0']
+
+        >>> merge_constraints(['Requests==1.0'], ['requests==2.0'])
+        ['requests==2.0']
+
+        >>> merge_constraints(['requests==1.0'], [])
+        ['requests==1.0']
+
+        >>> merge_constraints([], ['requests==2.0'])
+        ['requests==2.0']
+    """
+    # Handle empty cases
+    if not custom_constraints:
+        return sorted(base_constraints, key=lambda c: extract_package_name(c))
+    if not base_constraints:
+        return sorted(custom_constraints, key=lambda c: extract_package_name(c))
+
+    # Get package names from custom constraints
+    custom_package_names = _get_package_names(custom_constraints)
+
+    # Keep base constraints for packages not being replaced by custom
+    merged: List[str] = []
+    for base_constraint in base_constraints:
+        base_pkg_name = extract_package_name(base_constraint)
+        if base_pkg_name not in custom_package_names:
+            merged.append(base_constraint)
+
+    # Add all custom constraints
+    merged.extend(custom_constraints)
+
+    # Sort alphabetically by package name for consistency
+    return sorted(merged, key=lambda c: extract_package_name(c))
