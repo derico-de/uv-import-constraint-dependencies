@@ -8,3 +8,4 @@
 .worktrees/
 .security-key
 logs/security/
+__pycache__

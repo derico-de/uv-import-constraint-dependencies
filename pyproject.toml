@@ -4,13 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "uv-import-constraint-dependencies"
-version = "0.1.0"
+version = "0.1.1"
 description = "Import constraints.txt into pyproject.toml as tool.uv.constraint_dependencies"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
 authors = [
-    { name = "auto-claude" },
+    { name = "Maik Dertappen", email = "md@derico.de" },
 ]
 keywords = ["uv", "constraints", "pyproject", "cli"]
 classifiers = [
@@ -40,8 +40,8 @@ dev = [
 uv-import-constraint-dependencies = "uv_import_constraint_dependencies.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/example/uv-import-constraint-dependencies"
-Repository = "https://github.com/example/uv-import-constraint-dependencies"
+Homepage = "https://github.com/MrTango/uv-import-constraint-dependencies"
+Repository = "https://github.com/MrTango/uv-import-constraint-dependencies"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/uv_import_constraint_dependencies"]

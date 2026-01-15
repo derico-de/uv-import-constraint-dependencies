@@ -41,7 +41,7 @@ uv-import-constraint-dependencies -c https://example.com/constraints.txt
 |--------|-------|-------------|
 | `--constraints` | `-c` | Path or URI to constraints.txt file (required) |
 | `--pyproject` | `-p` | Path to pyproject.toml file (default: `pyproject.toml`) |
-| `--no-merge` | | Replace existing constraint_dependencies instead of merging |
+| `--merge` | | Merge with existing constraint_dependencies instead of replacing |
 | `--version` | | Show version information |
 | `--help` | | Show help message |
 
@@ -53,25 +53,25 @@ uv-import-constraint-dependencies -c https://example.com/constraints.txt
 uv-import-constraint-dependencies -c constraints.txt -p path/to/pyproject.toml
 ```
 
-**Replace existing constraints instead of merging:**
+**Merge with existing constraints instead of replacing:**
 
 ```bash
-uv-import-constraint-dependencies -c constraints.txt --no-merge
+uv-import-constraint-dependencies -c constraints.txt --merge
 ```
 
 ## Behavior
 
-### Merge Mode (Default)
+### Replace Mode (Default)
 
-By default, new constraints are merged with existing ones in `tool.uv.constraint_dependencies`:
+By default, all existing `constraint_dependencies` are replaced with the new ones from the constraints file.
+
+### Merge Mode (`--merge`)
+
+When using `--merge`, new constraints are merged with existing ones in `tool.uv.constraint_dependencies`:
 - New packages are added
 - Existing packages are updated with the new version specifier
 - Packages not in the new constraints file are preserved
 - Constraints are sorted alphabetically
-
-### Replace Mode (`--no-merge`)
-
-When using `--no-merge`, all existing constraint_dependencies are replaced with the new ones.
 
 ### Constraints File Format
 

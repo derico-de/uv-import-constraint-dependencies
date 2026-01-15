@@ -79,16 +79,16 @@ def _read_constraints(constraints_path: str) -> str:
     help='Path to pyproject.toml file.',
 )
 @click.option(
-    '--no-merge',
+    '--merge',
     is_flag=True,
     default=False,
-    help='Replace existing constraint_dependencies instead of merging.',
+    help='Merge with existing constraint_dependencies instead of replacing.',
 )
 @click.version_option(version=__version__, prog_name='uv-import-constraint-dependencies')
 def main(
     constraints: str,
     pyproject: str,
-    no_merge: bool,
+    merge: bool,
 ) -> None:
     """Import constraints.txt into pyproject.toml as tool.uv.constraint_dependencies.
 
@@ -107,8 +107,8 @@ def main(
         # Use custom pyproject.toml path
         uv-import-constraint-dependencies -c constraints.txt -p path/to/pyproject.toml
 
-        # Replace existing constraints instead of merging
-        uv-import-constraint-dependencies -c constraints.txt --no-merge
+        # Merge with existing constraints instead of replacing
+        uv-import-constraint-dependencies -c constraints.txt --merge
     """
     pyproject_path = Path(pyproject)
 
@@ -124,7 +124,6 @@ def main(
             sys.exit(0)
 
         # Update pyproject.toml
-        merge = not no_merge
         update_constraint_dependencies(pyproject_path, parsed_constraints, merge=merge)
 
         # Report success
