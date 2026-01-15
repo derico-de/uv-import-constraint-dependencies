@@ -20,14 +20,15 @@ def is_uri(path: str) -> bool:
     """
     Check if a given path is a URI (http:// or https://).
 
-    This function uses urllib.parse to determine if the provided path
-    represents a remote resource accessible via HTTP or HTTPS protocols.
+    This function checks if the provided path starts with http:// or https://
+    (case-sensitive). This represents a remote resource accessible via HTTP
+    or HTTPS protocols.
 
     Args:
         path: A string that could be either a local file path or a URI.
 
     Returns:
-        True if the path starts with http:// or https://, False otherwise.
+        True if the path starts with http:// or https:// (lowercase), False otherwise.
 
     Examples:
         >>> is_uri('https://example.com/constraints.txt')
@@ -44,9 +45,13 @@ def is_uri(path: str) -> bool:
 
         >>> is_uri('file:///path/to/file.txt')
         False
+
+        >>> is_uri('HTTPS://example.com/file.txt')
+        False
     """
-    parsed = urlparse(path)
-    return parsed.scheme in ('http', 'https')
+    # Use string prefix check for case-sensitive scheme detection
+    # (urlparse normalizes schemes to lowercase, which we don't want)
+    return path.startswith('http://') or path.startswith('https://')
 
 
 def fetch_constraints(uri: str, timeout: int = 30) -> str:

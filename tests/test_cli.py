@@ -918,7 +918,7 @@ name = "my-project"
 version = "1.0.0"
 
 [tool.uv]
-constraint_dependencies = [
+constraint-dependencies = [
     "existing-package==1.0.0",
 ]
 
@@ -966,7 +966,7 @@ line-length = 88
 name = "my-project"
 
 [tool.uv]
-constraint_dependencies = [
+constraint-dependencies = [
     "old-package==1.0.0",
     "another-old==2.0.0",
 ]
@@ -1276,7 +1276,7 @@ constraint-dependencies = [
             "-c", str(constraints_file),
             "--custom-constraints", str(custom_file),
             "-p", str(pyproject_file),
-            "--merge",
+            # merge is now default, no flag needed
         ])
 
         assert result.exit_code == 0
