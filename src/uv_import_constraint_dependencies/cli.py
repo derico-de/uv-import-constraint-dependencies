@@ -84,11 +84,19 @@ def _read_constraints(constraints_path: str) -> str:
     default=False,
     help='Merge with existing constraint_dependencies instead of replacing.',
 )
+@click.option(
+    '--cc',
+    '--custom-constraints',
+    'custom_constraints',
+    default=None,
+    help='Path to local custom constraints file for overriding base constraints.',
+)
 @click.version_option(version=__version__, prog_name='uv-import-constraint-dependencies')
 def main(
     constraints: str,
     pyproject: str,
     merge: bool,
+    custom_constraints: Optional[str],
 ) -> None:
     """Import constraints.txt into pyproject.toml as tool.uv.constraint-dependencies.
 
