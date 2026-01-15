@@ -5,7 +5,54 @@ extracting valid constraint specifications while ignoring comments,
 blank lines, and include directives.
 """
 
+import re
 from typing import List
+
+
+def extract_package_name(constraint: str) -> str:
+    """
+    Extract the package name from a constraint string.
+
+    This handles various version specifiers and environment markers to
+    extract just the base package name for comparison purposes.
+
+    Args:
+        constraint: A constraint string like "requests==2.31.0" or
+            "numpy>=1.24 ; python_version >= '3.9'"
+
+    Returns:
+        The package name portion of the constraint, normalized to lowercase.
+
+    Examples:
+        >>> extract_package_name('requests==2.31.0')
+        'requests'
+
+        >>> extract_package_name('urllib3>=1.26.0,<2.0.0')
+        'urllib3'
+
+        >>> extract_package_name('NumPy>=1.24 ; python_version >= "3.9"')
+        'numpy'
+
+        >>> extract_package_name('my-package[extra]>=1.0')
+        'my-package'
+
+        >>> extract_package_name('requests[security]==2.31.0')
+        'requests'
+    """
+    # Remove environment markers first (everything after ;)
+    constraint = constraint.split(';')[0].strip()
+
+    # Remove extras (everything in square brackets)
+    constraint = re.sub(r'\[.*?\]', '', constraint)
+
+    # Split on version specifiers
+    # Match any of: ==, !=, >=, <=, >, <, ~=, ===, @
+    # Use regex to find the first occurrence of any version specifier
+    match = re.match(r'^([a-zA-Z0-9_\-\.]+)', constraint)
+    if match:
+        return match.group(1).lower()
+
+    return constraint.strip().lower()
 
 
 def parse_constraints(content: str) -> List[str]:
