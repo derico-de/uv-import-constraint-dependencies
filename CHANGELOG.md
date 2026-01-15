@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Default behavior changed from merge to replace mode
 - Replaced `--no-merge` flag with `--merge` flag for explicit merge behavior
 
+### Fixed
+
+- Use correct TOML key `constraint-dependencies` (with hyphen) instead of `constraint_dependencies`
+
 ## [0.1.0] - 2025-01-15
 
 ### Added

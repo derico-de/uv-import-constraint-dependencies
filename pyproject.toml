@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "uv-import-constraint-dependencies"
 version = "0.1.1"
-description = "Import constraints.txt into pyproject.toml as tool.uv.constraint_dependencies"
+description = "Import constraints.txt into pyproject.toml as tool.uv.constraint-dependencies"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"

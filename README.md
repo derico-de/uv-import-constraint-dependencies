@@ -1,6 +1,6 @@
 # uv-import-constraint-dependencies
 
-A CLI tool to import `constraints.txt` files into `pyproject.toml` as `tool.uv.constraint_dependencies`.
+A CLI tool to import `constraints.txt` files into `pyproject.toml` as `tool.uv.constraint-dependencies`.
 
 ## Overview
 
@@ -41,7 +41,7 @@ uv-import-constraint-dependencies -c https://example.com/constraints.txt
 |--------|-------|-------------|
 | `--constraints` | `-c` | Path or URI to constraints.txt file (required) |
 | `--pyproject` | `-p` | Path to pyproject.toml file (default: `pyproject.toml`) |
-| `--merge` | | Merge with existing constraint_dependencies instead of replacing |
+| `--merge` | | Merge with existing constraint-dependencies instead of replacing |
 | `--version` | | Show version information |
 | `--help` | | Show help message |
 
@@ -63,11 +63,11 @@ uv-import-constraint-dependencies -c constraints.txt --merge
 
 ### Replace Mode (Default)
 
-By default, all existing `constraint_dependencies` are replaced with the new ones from the constraints file.
+By default, all existing `constraint-dependencies` are replaced with the new ones from the constraints file.
 
 ### Merge Mode (`--merge`)
 
-When using `--merge`, new constraints are merged with existing ones in `tool.uv.constraint_dependencies`:
+When using `--merge`, new constraints are merged with existing ones in `tool.uv.constraint-dependencies`:
 - New packages are added
 - Existing packages are updated with the new version specifier
 - Packages not in the new constraints file are preserved
@@ -95,7 +95,7 @@ The constraints are written to `pyproject.toml` as:
 
 ```toml
 [tool.uv]
-constraint_dependencies = [
+constraint-dependencies = [
     "flask>=2.0.0,<3.0.0",
     "numpy==1.24.3 ; python_version >= \"3.9\"",
     "requests==2.31.0",

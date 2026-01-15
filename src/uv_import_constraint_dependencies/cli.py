@@ -2,7 +2,7 @@
 
 This module provides the CLI interface using Click, allowing users to import
 constraints.txt files (local or remote) into pyproject.toml as
-tool.uv.constraint_dependencies.
+tool.uv.constraint-dependencies.
 """
 
 import sys
@@ -90,7 +90,7 @@ def main(
     pyproject: str,
     merge: bool,
 ) -> None:
-    """Import constraints.txt into pyproject.toml as tool.uv.constraint_dependencies.
+    """Import constraints.txt into pyproject.toml as tool.uv.constraint-dependencies.
 
     This tool reads a constraints file (local or remote HTTP/HTTPS URL) and
     imports the pinned dependencies into your pyproject.toml file in the format

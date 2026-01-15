@@ -1,7 +1,7 @@
 """TOML handler for reading and updating pyproject.toml.
 
 This module provides functionality to read and update pyproject.toml files
-with constraint_dependencies while preserving existing formatting and comments.
+with constraint-dependencies while preserving existing formatting and comments.
 Uses tomlkit for TOML manipulation to maintain document structure.
 """
 
@@ -108,9 +108,9 @@ def read_pyproject(pyproject_path: Path) -> TOMLDocument:
         raise TOMLError(f"Failed to parse {pyproject_path}: {e}") from e
 
 
-def get_constraint_dependencies(doc: TOMLDocument) -> List[str]:
+def get_constraint-dependencies(doc: TOMLDocument) -> List[str]:
     """
-    Get existing constraint_dependencies from a parsed TOML document.
+    Get existing constraint-dependencies from a parsed TOML document.
 
     Args:
         doc: A parsed TOML document.
@@ -120,7 +120,7 @@ def get_constraint_dependencies(doc: TOMLDocument) -> List[str]:
 
     Examples:
         >>> doc = read_pyproject(Path('pyproject.toml'))
-        >>> get_constraint_dependencies(doc)
+        >>> get_constraint-dependencies(doc)
         ['requests==2.31.0', 'flask>=2.0.0']
     """
     try:
@@ -132,7 +132,7 @@ def get_constraint_dependencies(doc: TOMLDocument) -> List[str]:
         if uv is None:
             return []
 
-        constraints = uv.get('constraint_dependencies')
+        constraints = uv.get('constraint-dependencies')
         if constraints is None:
             return []
 
@@ -141,16 +141,16 @@ def get_constraint_dependencies(doc: TOMLDocument) -> List[str]:
         return []
 
 
-def update_constraint_dependencies(
+def update_constraint-dependencies(
     pyproject_path: Path,
     constraints: List[str],
     merge: bool = True,
 ) -> None:
     """
-    Update pyproject.toml with constraint_dependencies.
+    Update pyproject.toml with constraint-dependencies.
 
     This function reads a pyproject.toml file, updates or creates the
-    tool.uv.constraint_dependencies section, and writes the file back
+    tool.uv.constraint-dependencies section, and writes the file back
     while preserving formatting and comments.
 
     Args:
@@ -164,7 +164,7 @@ def update_constraint_dependencies(
         TOMLError: If the file cannot be read, parsed, or written.
 
     Examples:
-        >>> update_constraint_dependencies(
+        >>> update_constraint-dependencies(
         ...     Path('pyproject.toml'),
         ...     ['requests==2.31.0', 'flask>=2.0.0'],
         ...     merge=True
@@ -190,7 +190,7 @@ def update_constraint_dependencies(
 
     # Handle merge behavior
     if merge:
-        existing = get_constraint_dependencies(doc)
+        existing = get_constraint-dependencies(doc)
         if existing:
             # Get package names from new constraints
             new_package_names = _get_existing_package_names(constraints)
@@ -209,7 +209,7 @@ def update_constraint_dependencies(
             constraints = sorted(merged, key=lambda c: _extract_package_name(c))
 
     # Sort constraints alphabetically if not already sorted
-    if not merge or not get_constraint_dependencies(doc):
+    if not merge or not get_constraint-dependencies(doc):
         constraints = sorted(constraints, key=lambda c: _extract_package_name(c))
 
     # Create a properly formatted array
@@ -221,7 +221,7 @@ def update_constraint_dependencies(
     if len(constraints) > 1:
         constraint_array.multiline(True)
 
-    uv['constraint_dependencies'] = constraint_array
+    uv['constraint-dependencies'] = constraint_array
 
     # Write back to file
     try:
@@ -235,7 +235,7 @@ def create_minimal_pyproject(pyproject_path: Path) -> None:
     Create a minimal pyproject.toml file with only the tool.uv section.
 
     This is useful when no pyproject.toml exists and we need to create one
-    to store constraint_dependencies.
+    to store constraint-dependencies.
 
     Args:
         pyproject_path: Path where the pyproject.toml will be created.
