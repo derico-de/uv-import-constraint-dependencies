@@ -12,7 +12,7 @@ from typing import Optional
 import click
 
 from uv_import_constraint_dependencies import __version__
-from uv_import_constraint_dependencies.parser import parse_constraints
+from uv_import_constraint_dependencies.parser import merge_constraints, parse_constraints
 from uv_import_constraint_dependencies.toml_handler import (
     TOMLError,
     update_constraint_dependencies,
@@ -124,8 +124,32 @@ def main(
         # Read constraints content (local or remote)
         content = _read_constraints(constraints)
 
-        # Parse the constraints
+        # Parse the base constraints
         parsed_constraints = parse_constraints(content)
+
+        # If custom constraints file is provided, read and merge
+        if custom_constraints:
+            custom_path = Path(custom_constraints)
+            if not custom_path.exists():
+                raise ConstraintsError(
+                    f"Custom constraints file not found: {custom_constraints}"
+                )
+            if not custom_path.is_file():
+                raise ConstraintsError(
+                    f"Custom constraints path is not a file: {custom_constraints}"
+                )
+            try:
+                custom_content = custom_path.read_text(encoding='utf-8')
+            except OSError as e:
+                raise ConstraintsError(
+                    f"Failed to read custom constraints file {custom_constraints}: {e}"
+                ) from e
+
+            parsed_custom = parse_constraints(custom_content)
+
+            # Merge constraints - custom takes precedence over base
+            if parsed_custom:
+                parsed_constraints = merge_constraints(parsed_constraints, parsed_custom)
 
         if not parsed_constraints:
             click.echo("No constraints found in the input file.", err=True)
