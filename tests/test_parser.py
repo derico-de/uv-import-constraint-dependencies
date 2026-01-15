@@ -14,7 +14,11 @@ covering various scenarios including:
 
 import pytest
 
-from uv_import_constraint_dependencies.parser import extract_package_name, parse_constraints
+from uv_import_constraint_dependencies.parser import (
+    extract_package_name,
+    merge_constraints,
+    parse_constraints,
+)
 
 
 class TestParseBasicConstraints:
@@ -622,3 +626,172 @@ class TestExtractPackageName:
         """Test extracting package name from version with epoch."""
         result = extract_package_name("package==1!2.0.0")
         assert result == "package"
+
+
+class TestMergeConstraints:
+    """Tests for merging base and custom constraint lists."""
+
+    def test_basic_merge_disjoint_packages(self) -> None:
+        """Test merging two lists with no overlapping packages."""
+        base = ["flask==2.0.0"]
+        custom = ["django==4.0.0"]
+        result = merge_constraints(base, custom)
+        assert result == ["django==4.0.0", "flask==2.0.0"]
+
+    def test_custom_overrides_base_same_package(self) -> None:
+        """Test that custom constraint takes precedence for same package."""
+        base = ["requests==1.0.0"]
+        custom = ["requests==2.0.0"]
+        result = merge_constraints(base, custom)
+        assert result == ["requests==2.0.0"]
+
+    def test_merge_with_multiple_packages(self) -> None:
+        """Test merging multiple packages with some overlap."""
+        base = ["requests==1.0", "flask==2.0"]
+        custom = ["requests==2.0", "django==4.0"]
+        result = merge_constraints(base, custom)
+        assert result == ["django==4.0", "flask==2.0", "requests==2.0"]
+
+    def test_empty_custom_returns_base(self) -> None:
+        """Test that empty custom list returns base constraints sorted."""
+        base = ["flask==2.0.0", "django==4.0.0"]
+        custom: list[str] = []
+        result = merge_constraints(base, custom)
+        assert result == ["django==4.0.0", "flask==2.0.0"]
+
+    def test_empty_base_returns_custom(self) -> None:
+        """Test that empty base list returns custom constraints sorted."""
+        base: list[str] = []
+        custom = ["flask==2.0.0", "django==4.0.0"]
+        result = merge_constraints(base, custom)
+        assert result == ["django==4.0.0", "flask==2.0.0"]
+
+    def test_both_empty_returns_empty(self) -> None:
+        """Test that both empty lists returns empty list."""
+        base: list[str] = []
+        custom: list[str] = []
+        result = merge_constraints(base, custom)
+        assert result == []
+
+    def test_case_insensitive_package_comparison(self) -> None:
+        """Test that package names are compared case-insensitively."""
+        base = ["Requests==1.0.0"]
+        custom = ["requests==2.0.0"]
+        result = merge_constraints(base, custom)
+        assert result == ["requests==2.0.0"]
+
+    def test_case_insensitive_mixed_case(self) -> None:
+        """Test case insensitivity with mixed case package names."""
+        base = ["NumPy==1.24.0", "Flask==2.0.0"]
+        custom = ["numpy==1.25.0"]
+        result = merge_constraints(base, custom)
+        assert result == ["Flask==2.0.0", "numpy==1.25.0"]
+
+    def test_result_sorted_alphabetically(self) -> None:
+        """Test that result is sorted alphabetically by package name."""
+        base = ["zebra==1.0", "apple==2.0"]
+        custom = ["mango==3.0"]
+        result = merge_constraints(base, custom)
+        assert result == ["apple==2.0", "mango==3.0", "zebra==1.0"]
+
+    def test_override_with_different_version_specifier(self) -> None:
+        """Test override when version specifiers differ."""
+        base = ["requests==2.31.0"]
+        custom = ["requests>=3.0.0,<4.0.0"]
+        result = merge_constraints(base, custom)
+        assert result == ["requests>=3.0.0,<4.0.0"]
+
+    def test_override_with_extras(self) -> None:
+        """Test that package with extras overrides base."""
+        base = ["requests==2.31.0"]
+        custom = ["requests[security]==3.0.0"]
+        result = merge_constraints(base, custom)
+        assert result == ["requests[security]==3.0.0"]
+
+    def test_override_base_with_extras(self) -> None:
+        """Test that custom overrides base when base has extras."""
+        base = ["requests[security]==2.31.0"]
+        custom = ["requests==3.0.0"]
+        result = merge_constraints(base, custom)
+        assert result == ["requests==3.0.0"]
+
+    def test_override_with_environment_marker(self) -> None:
+        """Test override when custom has environment marker."""
+        base = ["numpy==1.24.0"]
+        custom = ['numpy>=1.25.0 ; python_version >= "3.10"']
+        result = merge_constraints(base, custom)
+        assert result == ['numpy>=1.25.0 ; python_version >= "3.10"']
+
+    def test_override_base_with_environment_marker(self) -> None:
+        """Test override when base has environment marker."""
+        base = ['numpy==1.24.0 ; python_version >= "3.9"']
+        custom = ["numpy>=1.25.0"]
+        result = merge_constraints(base, custom)
+        assert result == ["numpy>=1.25.0"]
+
+    def test_merge_preserves_original_constraint_format(self) -> None:
+        """Test that original constraint formatting is preserved."""
+        base = ["flask[async]==2.3.3", "django>=4.2.0,<5.0.0"]
+        custom = ['requests==2.31.0 ; python_version >= "3.8"']
+        result = merge_constraints(base, custom)
+        assert result == [
+            "django>=4.2.0,<5.0.0",
+            "flask[async]==2.3.3",
+            'requests==2.31.0 ; python_version >= "3.8"',
+        ]
+
+    def test_merge_with_dash_underscore_packages(self) -> None:
+        """Test merging packages with dashes and underscores."""
+        base = ["psycopg2-binary==2.9.9"]
+        custom = ["typing_extensions>=4.0"]
+        result = merge_constraints(base, custom)
+        assert result == ["psycopg2-binary==2.9.9", "typing_extensions>=4.0"]
+
+    def test_merge_url_constraint(self) -> None:
+        """Test merging URL-based constraints."""
+        base = ["package==1.0.0"]
+        custom = ["package @ https://example.com/package-2.0.0.tar.gz"]
+        result = merge_constraints(base, custom)
+        assert result == ["package @ https://example.com/package-2.0.0.tar.gz"]
+
+    def test_merge_complex_scenario(self) -> None:
+        """Test complex merge with various constraint types."""
+        base = [
+            "requests==2.31.0",
+            "flask[async]==2.3.3",
+            "numpy==1.24.3",
+            "django>=4.0.0,<5.0.0",
+            "urllib3>=1.26.0,<2.0.0",
+        ]
+        custom = [
+            "requests>=3.0.0",  # Override
+            "numpy>=1.25.0",  # Override
+            "celery[redis,auth]>=5.3.0",  # New
+            'pandas>=2.0.0 ; python_version >= "3.10"',  # New
+        ]
+        result = merge_constraints(base, custom)
+        expected = [
+            "celery[redis,auth]>=5.3.0",
+            "django>=4.0.0,<5.0.0",
+            "flask[async]==2.3.3",
+            "numpy>=1.25.0",
+            'pandas>=2.0.0 ; python_version >= "3.10"',
+            "requests>=3.0.0",
+            "urllib3>=1.26.0,<2.0.0",
+        ]
+        assert result == expected
+
+    def test_single_package_in_both(self) -> None:
+        """Test with just one package in both lists."""
+        base = ["requests==1.0.0"]
+        custom = ["requests==2.0.0"]
+        result = merge_constraints(base, custom)
+        assert len(result) == 1
+        assert result[0] == "requests==2.0.0"
+
+    def test_multiple_custom_overrides(self) -> None:
+        """Test multiple packages being overridden by custom."""
+        base = ["flask==2.0.0", "requests==1.0.0", "django==3.0.0"]
+        custom = ["flask==3.0.0", "django==4.0.0"]
+        result = merge_constraints(base, custom)
+        assert result == ["django==4.0.0", "flask==3.0.0", "requests==1.0.0"]
