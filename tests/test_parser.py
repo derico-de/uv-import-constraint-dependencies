@@ -14,7 +14,7 @@ covering various scenarios including:
 
 import pytest
 
-from uv_import_constraint_dependencies.parser import parse_constraints
+from uv_import_constraint_dependencies.parser import extract_package_name, parse_constraints
 
 
 class TestParseBasicConstraints:
@@ -503,3 +503,122 @@ class TestParseReturnType:
         content = "zebra==1.0\napple==2.0\nmango==3.0"
         result = parse_constraints(content)
         assert result == ["zebra==1.0", "apple==2.0", "mango==3.0"]
+
+
+class TestExtractPackageName:
+    """Tests for extracting package names from constraint strings."""
+
+    def test_exact_version(self) -> None:
+        """Test extracting package name from exact version constraint."""
+        result = extract_package_name("requests==2.31.0")
+        assert result == "requests"
+
+    def test_greater_than_equal_version(self) -> None:
+        """Test extracting package name from >= version constraint."""
+        result = extract_package_name("flask>=2.0.0")
+        assert result == "flask"
+
+    def test_less_than_version(self) -> None:
+        """Test extracting package name from < version constraint."""
+        result = extract_package_name("django<5.0.0")
+        assert result == "django"
+
+    def test_version_range(self) -> None:
+        """Test extracting package name from version range constraint."""
+        result = extract_package_name("urllib3>=1.26.0,<2.0.0")
+        assert result == "urllib3"
+
+    def test_compatible_release(self) -> None:
+        """Test extracting package name from ~= compatible release."""
+        result = extract_package_name("requests~=2.31")
+        assert result == "requests"
+
+    def test_not_equal_version(self) -> None:
+        """Test extracting package name from != version constraint."""
+        result = extract_package_name("package!=1.0.0")
+        assert result == "package"
+
+    def test_arbitrary_equality(self) -> None:
+        """Test extracting package name from === arbitrary equality."""
+        result = extract_package_name("package===1.0.custom")
+        assert result == "package"
+
+    def test_with_environment_marker(self) -> None:
+        """Test extracting package name with environment marker."""
+        result = extract_package_name('numpy>=1.24 ; python_version >= "3.9"')
+        assert result == "numpy"
+
+    def test_with_single_extra(self) -> None:
+        """Test extracting package name with single extra."""
+        result = extract_package_name("requests[security]==2.31.0")
+        assert result == "requests"
+
+    def test_with_multiple_extras(self) -> None:
+        """Test extracting package name with multiple extras."""
+        result = extract_package_name("celery[redis,auth]>=5.3.0")
+        assert result == "celery"
+
+    def test_extra_and_marker(self) -> None:
+        """Test extracting package name with both extra and marker."""
+        result = extract_package_name('uvicorn[standard]>=0.23.0 ; python_version >= "3.8"')
+        assert result == "uvicorn"
+
+    def test_package_name_with_dash(self) -> None:
+        """Test extracting package name containing dashes."""
+        result = extract_package_name("psycopg2-binary==2.9.9")
+        assert result == "psycopg2-binary"
+
+    def test_package_name_with_underscore(self) -> None:
+        """Test extracting package name containing underscores."""
+        result = extract_package_name("typing_extensions>=4.0")
+        assert result == "typing_extensions"
+
+    def test_package_name_with_dots(self) -> None:
+        """Test extracting package name containing dots."""
+        result = extract_package_name("zope.interface>=5.0")
+        assert result == "zope.interface"
+
+    def test_lowercase_normalization(self) -> None:
+        """Test that package name is normalized to lowercase."""
+        result = extract_package_name("NumPy>=1.24.0")
+        assert result == "numpy"
+
+    def test_mixed_case_normalization(self) -> None:
+        """Test normalization of mixed case package names."""
+        result = extract_package_name("Flask==2.3.3")
+        assert result == "flask"
+
+    def test_url_constraint(self) -> None:
+        """Test extracting package name from URL-based constraint."""
+        result = extract_package_name("package @ https://example.com/package-1.0.0.tar.gz")
+        assert result == "package"
+
+    def test_pre_release_version(self) -> None:
+        """Test extracting package name from pre-release version."""
+        result = extract_package_name("package==1.0.0a1")
+        assert result == "package"
+
+    def test_post_release_version(self) -> None:
+        """Test extracting package name from post-release version."""
+        result = extract_package_name("package==1.0.0.post1")
+        assert result == "package"
+
+    def test_dev_release_version(self) -> None:
+        """Test extracting package name from dev release version."""
+        result = extract_package_name("package==1.0.0.dev1")
+        assert result == "package"
+
+    def test_local_version(self) -> None:
+        """Test extracting package name from local version identifier."""
+        result = extract_package_name("package==1.0.0+local.version")
+        assert result == "package"
+
+    def test_wildcard_version(self) -> None:
+        """Test extracting package name from wildcard version."""
+        result = extract_package_name("package==1.0.*")
+        assert result == "package"
+
+    def test_epoch_version(self) -> None:
+        """Test extracting package name from version with epoch."""
+        result = extract_package_name("package==1!2.0.0")
+        assert result == "package"
