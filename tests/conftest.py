@@ -389,3 +389,264 @@ def invalid_uris() -> list[str]:
         "ftp://server.com/file.txt",
         "",
     ]
+
+
+# =============================================================================
+# Custom Constraints Content Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def custom_constraints_basic() -> str:
+    """Basic custom constraints content for merging tests."""
+    return """\
+django>=4.2.0
+celery>=5.3.0
+redis>=4.5.0
+"""
+
+
+@pytest.fixture
+def custom_constraints_override() -> str:
+    """Custom constraints that override packages in basic_constraints_content.
+
+    Use with basic_constraints_content to test that custom versions take precedence.
+    - requests==2.31.0 in base -> requests==2.32.0 in custom (override)
+    - urllib3>=1.26.0,<2.0.0 in base -> urllib3>=2.0.0 in custom (override)
+    """
+    return """\
+requests==2.32.0
+urllib3>=2.0.0
+"""
+
+
+@pytest.fixture
+def custom_constraints_mixed() -> str:
+    """Custom constraints with both override and new packages.
+
+    Use with basic_constraints_content to test union and override together.
+    - requests: overrides base version
+    - django, celery: new packages unique to custom
+    """
+    return """\
+# Override from base constraints
+requests==2.32.0
+
+# New packages not in base
+django>=4.2.0
+celery>=5.3.0
+"""
+
+
+@pytest.fixture
+def custom_constraints_with_extras() -> str:
+    """Custom constraints with package extras that override base packages.
+
+    Tests that packages are matched by name regardless of extras.
+    """
+    return """\
+requests[security]==2.32.0
+celery[redis,auth]>=5.3.0
+"""
+
+
+@pytest.fixture
+def custom_constraints_with_markers() -> str:
+    """Custom constraints with environment markers."""
+    return """\
+requests==2.32.0 ; python_version >= "3.10"
+django>=4.2.0 ; sys_platform == "linux"
+"""
+
+
+@pytest.fixture
+def custom_constraints_case_mismatch() -> str:
+    """Custom constraints with different case than base packages.
+
+    Tests case-insensitive package name matching.
+    - Base might have 'requests' but custom has 'Requests'
+    """
+    return """\
+Requests==2.32.0
+URLLIB3>=2.0.0
+Django>=4.2.0
+"""
+
+
+@pytest.fixture
+def custom_constraints_empty() -> str:
+    """Empty custom constraints content.
+
+    When merged with base, should result in base constraints only.
+    """
+    return ""
+
+
+@pytest.fixture
+def custom_constraints_comments_only() -> str:
+    """Custom constraints with only comments (no actual constraints).
+
+    When merged with base, should result in base constraints only.
+    """
+    return """\
+# This custom constraints file only has comments
+# No actual package constraints here
+
+# Another comment
+"""
+
+
+@pytest.fixture
+def custom_constraints_complex() -> str:
+    """Complex custom constraints combining multiple features.
+
+    For comprehensive merge testing with complex_constraints_content.
+    """
+    return """\
+# Override existing packages with new versions
+requests==2.32.0  # Newer than base
+numpy==1.25.0 ; python_version >= "3.9"  # Override with different version
+
+# Add new packages not in base
+sqlalchemy>=2.0.0
+pydantic>=2.0.0,<3.0.0
+
+# Package with extras
+aiohttp[speedups]>=3.9.0
+
+# Include directive (should be skipped)
+-r local-dev.txt
+"""
+
+
+@pytest.fixture
+def expected_basic_custom_merge() -> list[str]:
+    """Expected result of merging basic_constraints_content with custom_constraints_basic.
+
+    Alphabetically sorted, union of both constraint sets.
+    """
+    return [
+        "celery>=5.3.0",
+        "certifi>=2023.7.22",
+        "django>=4.2.0",
+        "redis>=4.5.0",
+        "requests==2.31.0",
+        "urllib3>=1.26.0,<2.0.0",
+    ]
+
+
+@pytest.fixture
+def expected_override_merge() -> list[str]:
+    """Expected result of merging basic_constraints_content with custom_constraints_override.
+
+    Custom versions take precedence for requests and urllib3.
+    """
+    return [
+        "certifi>=2023.7.22",
+        "requests==2.32.0",
+        "urllib3>=2.0.0",
+    ]
+
+
+@pytest.fixture
+def expected_mixed_merge() -> list[str]:
+    """Expected result of merging basic_constraints_content with custom_constraints_mixed.
+
+    - requests: overridden by custom version
+    - urllib3, certifi: from base (not in custom)
+    - django, celery: new from custom
+    """
+    return [
+        "celery>=5.3.0",
+        "certifi>=2023.7.22",
+        "django>=4.2.0",
+        "requests==2.32.0",
+        "urllib3>=1.26.0,<2.0.0",
+    ]
+
+
+# =============================================================================
+# Custom Constraints File Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def tmp_custom_constraints_file(
+    tmp_path: Path,
+    custom_constraints_basic: str,
+) -> Path:
+    """Create a temporary custom-constraints.txt file with basic content."""
+    custom_file = tmp_path / "custom-constraints.txt"
+    custom_file.write_text(custom_constraints_basic, encoding="utf-8")
+    return custom_file
+
+
+@pytest.fixture
+def create_custom_constraints_file(tmp_path: Path) -> Callable[[str, str], Path]:
+    """Factory fixture to create custom constraints files with custom content.
+
+    Returns:
+        A callable that takes (filename, content) and returns the created file path.
+
+    Example:
+        def test_something(create_custom_constraints_file):
+            custom_path = create_custom_constraints_file(
+                "custom-constraints.txt",
+                "requests==2.32.0\\ndjango>=4.2.0"
+            )
+            # Use custom_path in test...
+    """
+
+    def _create(filename: str, content: str) -> Path:
+        file_path = tmp_path / filename
+        file_path.write_text(content, encoding="utf-8")
+        return file_path
+
+    return _create
+
+
+@pytest.fixture
+def create_project_with_custom_constraints(
+    tmp_path: Path,
+) -> Callable[[str, str, str], tuple[Path, Path, Path, Path]]:
+    """Factory fixture to create a project directory with base, custom, and pyproject files.
+
+    Creates a directory containing:
+    - constraints.txt (base constraints)
+    - custom-constraints.txt (custom override constraints)
+    - pyproject.toml
+
+    Returns:
+        A callable that takes (base_content, custom_content, pyproject_content) and returns
+        a tuple of (project_dir, base_constraints_path, custom_constraints_path, pyproject_path).
+
+    Example:
+        def test_something(create_project_with_custom_constraints):
+            project_dir, base, custom, pyproject = create_project_with_custom_constraints(
+                "requests==2.31.0",
+                "requests==2.32.0",
+                '[project]\\nname = "test"'
+            )
+            # Use paths in test...
+    """
+
+    def _create(
+        base_content: str,
+        custom_content: str,
+        pyproject_content: str,
+    ) -> tuple[Path, Path, Path, Path]:
+        project_dir = tmp_path / "project"
+        project_dir.mkdir(exist_ok=True)
+
+        base_path = project_dir / "constraints.txt"
+        base_path.write_text(base_content, encoding="utf-8")
+
+        custom_path = project_dir / "custom-constraints.txt"
+        custom_path.write_text(custom_content, encoding="utf-8")
+
+        pyproject_path = project_dir / "pyproject.toml"
+        pyproject_path.write_text(pyproject_content, encoding="utf-8")
+
+        return project_dir, base_path, custom_path, pyproject_path
+
+    return _create
