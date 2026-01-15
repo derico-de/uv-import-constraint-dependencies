@@ -1,0 +1,391 @@
+"""Pytest fixtures and helpers for uv-import-constraint-dependencies tests.
+
+This module provides reusable fixtures for testing, including:
+- Sample constraints file content
+- Temporary file helpers
+- Sample pyproject.toml content
+"""
+
+from pathlib import Path
+from typing import Callable
+
+import pytest
+
+
+# =============================================================================
+# Sample Constraints Content Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def basic_constraints_content() -> str:
+    """Simple constraints.txt content with basic version specifiers."""
+    return """\
+requests==2.31.0
+urllib3>=1.26.0,<2.0.0
+certifi>=2023.7.22
+"""
+
+
+@pytest.fixture
+def constraints_with_comments() -> str:
+    """Constraints content with comments and blank lines."""
+    return """\
+# Production dependencies
+requests==2.31.0
+urllib3>=1.26.0,<2.0.0
+
+# Security
+certifi>=2023.7.22
+
+# This is the last one
+flask==2.3.3
+"""
+
+
+@pytest.fixture
+def constraints_with_markers() -> str:
+    """Constraints content with environment markers."""
+    return """\
+numpy==1.24.3 ; python_version >= "3.9"
+pandas>=2.0.0 ; sys_platform == "linux"
+pywin32>=306 ; sys_platform == "win32"
+"""
+
+
+@pytest.fixture
+def constraints_with_extras() -> str:
+    """Constraints content with package extras."""
+    return """\
+requests[security]==2.31.0
+celery[redis,auth]>=5.3.0
+uvicorn[standard]>=0.23.0
+"""
+
+
+@pytest.fixture
+def constraints_with_directives() -> str:
+    """Constraints content with include directives to skip."""
+    return """\
+# Include other files (should be skipped)
+-r requirements.txt
+-c base-constraints.txt
+--constraint other.txt
+--requirement dev.txt
+
+# Actual constraints
+requests==2.31.0
+flask>=2.0.0
+"""
+
+
+@pytest.fixture
+def constraints_with_inline_comments() -> str:
+    """Constraints content with inline comments."""
+    return """\
+requests==2.31.0  # Main HTTP library
+urllib3>=1.26.0,<2.0.0  # HTTP connection pooling
+certifi>=2023.7.22 # SSL certificates
+"""
+
+
+@pytest.fixture
+def empty_constraints_content() -> str:
+    """Empty constraints content."""
+    return ""
+
+
+@pytest.fixture
+def comment_only_constraints() -> str:
+    """Constraints content with only comments (no actual constraints)."""
+    return """\
+# This file only has comments
+# No actual constraints here
+
+# Another comment
+"""
+
+
+@pytest.fixture
+def complex_constraints_content() -> str:
+    """Complex constraints content combining multiple features."""
+    return """\
+# Constraints for production dependencies
+requests==2.31.0  # Main HTTP client
+urllib3>=1.26.0,<2.0.0
+certifi>=2023.7.22
+
+# Data processing
+numpy==1.24.3 ; python_version >= "3.9"
+pandas>=2.0.0,<3.0.0 ; python_version >= "3.10"
+
+# Database
+psycopg2-binary==2.9.9
+
+# Include directive (should be skipped)
+-r dev-requirements.txt
+
+# Web framework
+flask[async]==2.3.3
+django>=4.2.0,<5.0.0
+
+"""
+
+
+# =============================================================================
+# Sample pyproject.toml Content Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def minimal_pyproject_content() -> str:
+    """Minimal pyproject.toml with only project name."""
+    return """\
+[project]
+name = "test-project"
+version = "0.1.0"
+"""
+
+
+@pytest.fixture
+def pyproject_with_tool_uv() -> str:
+    """pyproject.toml with existing tool.uv section but no constraints."""
+    return """\
+[project]
+name = "test-project"
+version = "0.1.0"
+
+[tool.uv]
+dev-dependencies = ["pytest>=7.0"]
+"""
+
+
+@pytest.fixture
+def pyproject_with_constraints() -> str:
+    """pyproject.toml with existing constraint_dependencies."""
+    return """\
+[project]
+name = "test-project"
+version = "0.1.0"
+
+[tool.uv]
+constraint_dependencies = [
+    "existing-package==1.0.0",
+    "another-package>=2.0.0",
+]
+"""
+
+
+@pytest.fixture
+def pyproject_with_comments() -> str:
+    """pyproject.toml with comments to test formatting preservation."""
+    return """\
+# Project configuration
+[project]
+name = "test-project"
+version = "0.1.0"
+description = "A test project"
+
+# Tool configurations
+[tool.uv]
+# These are the existing constraints
+constraint_dependencies = [
+    "existing-package==1.0.0",
+]
+
+# Other tool settings
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+"""
+
+
+@pytest.fixture
+def empty_pyproject_content() -> str:
+    """Empty pyproject.toml content."""
+    return ""
+
+
+# =============================================================================
+# Temporary File Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def tmp_constraints_file(
+    tmp_path: Path,
+    basic_constraints_content: str,
+) -> Path:
+    """Create a temporary constraints.txt file with basic content."""
+    constraints_file = tmp_path / "constraints.txt"
+    constraints_file.write_text(basic_constraints_content, encoding="utf-8")
+    return constraints_file
+
+
+@pytest.fixture
+def tmp_pyproject_file(
+    tmp_path: Path,
+    minimal_pyproject_content: str,
+) -> Path:
+    """Create a temporary pyproject.toml file with minimal content."""
+    pyproject_file = tmp_path / "pyproject.toml"
+    pyproject_file.write_text(minimal_pyproject_content, encoding="utf-8")
+    return pyproject_file
+
+
+@pytest.fixture
+def tmp_empty_dir(tmp_path: Path) -> Path:
+    """Create an empty temporary directory."""
+    empty_dir = tmp_path / "empty"
+    empty_dir.mkdir()
+    return empty_dir
+
+
+# =============================================================================
+# Factory Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def create_constraints_file(tmp_path: Path) -> Callable[[str, str], Path]:
+    """Factory fixture to create constraints files with custom content.
+
+    Returns:
+        A callable that takes (filename, content) and returns the created file path.
+
+    Example:
+        def test_something(create_constraints_file):
+            constraints_path = create_constraints_file(
+                "my-constraints.txt",
+                "requests==2.31.0\\nflask>=2.0.0"
+            )
+            # Use constraints_path in test...
+    """
+
+    def _create(filename: str, content: str) -> Path:
+        file_path = tmp_path / filename
+        file_path.write_text(content, encoding="utf-8")
+        return file_path
+
+    return _create
+
+
+@pytest.fixture
+def create_pyproject_file(tmp_path: Path) -> Callable[[str], Path]:
+    """Factory fixture to create pyproject.toml files with custom content.
+
+    Returns:
+        A callable that takes content and returns the created file path.
+
+    Example:
+        def test_something(create_pyproject_file):
+            pyproject_path = create_pyproject_file(
+                '[project]\\nname = "test"'
+            )
+            # Use pyproject_path in test...
+    """
+
+    def _create(content: str) -> Path:
+        file_path = tmp_path / "pyproject.toml"
+        file_path.write_text(content, encoding="utf-8")
+        return file_path
+
+    return _create
+
+
+@pytest.fixture
+def create_project_dir(
+    tmp_path: Path,
+) -> Callable[[str, str], tuple[Path, Path, Path]]:
+    """Factory fixture to create a project directory with both files.
+
+    Creates a directory containing both a constraints.txt and pyproject.toml file.
+
+    Returns:
+        A callable that takes (constraints_content, pyproject_content) and returns
+        a tuple of (project_dir, constraints_path, pyproject_path).
+
+    Example:
+        def test_something(create_project_dir):
+            project_dir, constraints, pyproject = create_project_dir(
+                "requests==2.31.0",
+                '[project]\\nname = "test"'
+            )
+            # Use paths in test...
+    """
+
+    def _create(
+        constraints_content: str,
+        pyproject_content: str,
+    ) -> tuple[Path, Path, Path]:
+        project_dir = tmp_path / "project"
+        project_dir.mkdir(exist_ok=True)
+
+        constraints_path = project_dir / "constraints.txt"
+        constraints_path.write_text(constraints_content, encoding="utf-8")
+
+        pyproject_path = project_dir / "pyproject.toml"
+        pyproject_path.write_text(pyproject_content, encoding="utf-8")
+
+        return project_dir, constraints_path, pyproject_path
+
+    return _create
+
+
+# =============================================================================
+# Expected Results Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def expected_basic_constraints() -> list[str]:
+    """Expected parsed result for basic_constraints_content."""
+    return [
+        "requests==2.31.0",
+        "urllib3>=1.26.0,<2.0.0",
+        "certifi>=2023.7.22",
+    ]
+
+
+@pytest.fixture
+def expected_complex_constraints() -> list[str]:
+    """Expected parsed result for complex_constraints_content (sorted)."""
+    return [
+        "certifi>=2023.7.22",
+        "django>=4.2.0,<5.0.0",
+        "flask[async]==2.3.3",
+        "numpy==1.24.3 ; python_version >= \"3.9\"",
+        "pandas>=2.0.0,<3.0.0 ; python_version >= \"3.10\"",
+        "psycopg2-binary==2.9.9",
+        "requests==2.31.0",
+        "urllib3>=1.26.0,<2.0.0",
+    ]
+
+
+# =============================================================================
+# URI Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def valid_http_uri() -> str:
+    """A valid HTTP URI for testing URI detection."""
+    return "http://example.com/constraints.txt"
+
+
+@pytest.fixture
+def valid_https_uri() -> str:
+    """A valid HTTPS URI for testing URI detection."""
+    return "https://example.com/constraints.txt"
+
+
+@pytest.fixture
+def invalid_uris() -> list[str]:
+    """List of strings that should not be detected as URIs."""
+    return [
+        "constraints.txt",
+        "/path/to/constraints.txt",
+        "./relative/path.txt",
+        "file:///local/file.txt",
+        "ftp://server.com/file.txt",
+        "",
+    ]
