@@ -12,7 +12,7 @@ from typing import Optional
 import click
 
 from uv_import_constraint_dependencies import __version__
-from uv_import_constraint_dependencies.parser import parse_constraints
+from uv_import_constraint_dependencies.parser import merge_constraints, parse_constraints
 from uv_import_constraint_dependencies.toml_handler import (
     TOMLError,
     update_constraint_dependencies,
@@ -79,16 +79,25 @@ def _read_constraints(constraints_path: str) -> str:
     help='Path to pyproject.toml file.',
 )
 @click.option(
-    '--merge',
+    '--no-merge',
+    'no_merge',
     is_flag=True,
     default=False,
-    help='Merge with existing constraint_dependencies instead of replacing.',
+    help='Replace all existing constraints instead of merging.',
+)
+@click.option(
+    '--cc',
+    '--custom-constraints',
+    'custom_constraints',
+    default=None,
+    help='Path to local custom constraints file for overriding base constraints.',
 )
 @click.version_option(version=__version__, prog_name='uv-import-constraint-dependencies')
 def main(
     constraints: str,
     pyproject: str,
-    merge: bool,
+    no_merge: bool,
+    custom_constraints: Optional[str],
 ) -> None:
     """Import constraints.txt into pyproject.toml as tool.uv.constraint-dependencies.
 
@@ -116,14 +125,39 @@ def main(
         # Read constraints content (local or remote)
         content = _read_constraints(constraints)
 
-        # Parse the constraints
+        # Parse the base constraints
         parsed_constraints = parse_constraints(content)
+
+        # If custom constraints file is provided, read and merge
+        if custom_constraints:
+            custom_path = Path(custom_constraints)
+            if not custom_path.exists():
+                raise ConstraintsError(
+                    f"Custom constraints file not found: {custom_constraints}"
+                )
+            if not custom_path.is_file():
+                raise ConstraintsError(
+                    f"Custom constraints path is not a file: {custom_constraints}"
+                )
+            try:
+                custom_content = custom_path.read_text(encoding='utf-8')
+            except OSError as e:
+                raise ConstraintsError(
+                    f"Failed to read custom constraints file {custom_constraints}: {e}"
+                ) from e
+
+            parsed_custom = parse_constraints(custom_content)
+
+            # Merge constraints - custom takes precedence over base
+            if parsed_custom:
+                parsed_constraints = merge_constraints(parsed_constraints, parsed_custom)
 
         if not parsed_constraints:
             click.echo("No constraints found in the input file.", err=True)
             sys.exit(0)
 
-        # Update pyproject.toml
+        # Update pyproject.toml (merge=True by default unless --no-merge is specified)
+        merge = not no_merge
         update_constraint_dependencies(pyproject_path, parsed_constraints, merge=merge)
 
         # Report success

@@ -4,7 +4,7 @@ This module provides comprehensive E2E tests that verify the complete workflow:
 1. Create sample constraints.txt with test dependencies
 2. Create minimal pyproject.toml
 3. Run uv-import-constraint-dependencies -c constraints.txt
-4. Verify tool.uv.constraint_dependencies section exists with correct values
+4. Verify tool.uv.constraint-dependencies section exists with correct values
 
 These tests match the verification requirements from the spec's QA acceptance criteria.
 """
@@ -57,7 +57,7 @@ name = "test-project"
 version = "1.0.0"
 
 [tool.uv]
-constraint_dependencies = [
+constraint-dependencies = [
     "existing-package==1.0.0",
     "another-package>=2.0.0",
 ]
@@ -89,7 +89,7 @@ testpaths = ["tests"]
 @pytest.fixture
 def cli_runner() -> CliRunner:
     """Create a Click CLI runner for testing."""
-    return CliRunner(mix_stderr=False)
+    return CliRunner()
 
 
 @pytest.fixture
@@ -132,7 +132,7 @@ class TestE2EBasicUsage:
     1. Create sample constraints.txt with test dependencies
     2. Create minimal pyproject.toml
     3. Run uv-import-constraint-dependencies -c constraints.txt
-    4. Verify tool.uv.constraint_dependencies section exists with correct values
+    4. Verify tool.uv.constraint-dependencies section exists with correct values
     """
 
     def test_e2e_spec_sample_workflow(
@@ -161,7 +161,7 @@ class TestE2EBasicUsage:
         assert result.exit_code == 0, f"CLI failed: {result.output} {result.stderr}"
         assert "Successfully" in result.output
 
-        # Step 4: Verify tool.uv.constraint_dependencies section exists with correct values
+        # Step 4: Verify tool.uv.constraint-dependencies section exists with correct values
         assert pyproject_path.exists()
         doc = read_pyproject(pyproject_path)
         constraints = get_constraint_dependencies(doc)
@@ -173,7 +173,7 @@ class TestE2EBasicUsage:
         # Verify TOML structure
         assert "tool" in doc
         assert "uv" in doc["tool"]
-        assert "constraint_dependencies" in doc["tool"]["uv"]
+        assert "constraint-dependencies" in doc["tool"]["uv"]
 
     def test_e2e_creates_pyproject_if_missing(
         self,
@@ -291,7 +291,7 @@ class TestE2EMergeFlow:
 name = "test-project"
 
 [tool.uv]
-constraint_dependencies = [
+constraint-dependencies = [
     "requests==2.0.0",
 ]
 """
@@ -421,7 +421,7 @@ class TestE2EFormattingPreservation:
         content = pyproject_path.read_text()
 
         # Multiple constraints should be on separate lines
-        assert "constraint_dependencies = [" in content
+        assert "constraint-dependencies = [" in content
 
 
 # =============================================================================
@@ -745,7 +745,7 @@ class TestE2ECLIInterface:
         assert "Usage:" in result.output
         assert "-c" in result.output or "--constraints" in result.output
         assert "pyproject.toml" in result.output
-        assert "constraint_dependencies" in result.output
+        assert "constraint-dependencies" in result.output
 
     def test_e2e_version_output(self, cli_runner: CliRunner) -> None:
         """Test --version output as specified in acceptance criteria."""

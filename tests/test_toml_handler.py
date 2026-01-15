@@ -178,7 +178,7 @@ class TestReadPyproject:
         doc = read_pyproject(pyproject_path)
         assert "tool" in doc
         assert "uv" in doc["tool"]
-        assert "constraint_dependencies" in doc["tool"]["uv"]
+        assert "constraint-dependencies" in doc["tool"]["uv"]
 
     def test_read_pyproject_preserves_formatting(
         self,
@@ -270,7 +270,7 @@ class TestUpdateConstraintDependenciesFreshCreation:
 
         assert pyproject_path.exists()
         content = pyproject_path.read_text()
-        assert "constraint_dependencies" in content
+        assert "constraint-dependencies" in content
         assert "requests==2.31.0" in content
         assert "flask>=2.0.0" in content
 
@@ -315,7 +315,7 @@ class TestUpdateConstraintDependenciesFreshCreation:
         doc = read_pyproject(tmp_pyproject_file)
         assert "tool" in doc
         assert "uv" in doc["tool"]
-        assert "constraint_dependencies" in doc["tool"]["uv"]
+        assert "constraint-dependencies" in doc["tool"]["uv"]
 
     def test_creates_uv_section_if_missing(
         self,
@@ -408,7 +408,7 @@ class TestUpdateConstraintDependenciesMergeBehavior:
 name = "test"
 
 [tool.uv]
-constraint_dependencies = ["NumPy==1.24.0"]
+constraint-dependencies = ["NumPy==1.24.0"]
 """
         pyproject_path = create_pyproject_file(content)
         new_constraints = ["numpy>=1.25.0"]
@@ -481,7 +481,7 @@ class TestUpdateConstraintDependenciesSorting:
 name = "test"
 
 [tool.uv]
-constraint_dependencies = ["zebra==1.0.0", "apple==1.0.0"]
+constraint-dependencies = ["zebra==1.0.0", "apple==1.0.0"]
 """
         pyproject_path = create_pyproject_file(content)
         new_constraints = ["mango==2.0.0"]
@@ -555,7 +555,7 @@ class TestUpdateConstraintDependenciesFormattingPreservation:
 
         content = pyproject_path.read_text()
         # Should have multiline array formatting
-        assert "constraint_dependencies = [" in content
+        assert "constraint-dependencies = [" in content
         # Each constraint should be on its own line
         lines = content.split("\n")
         constraint_lines = [line for line in lines if "==" in line or ">=" in line or "<" in line]
@@ -572,7 +572,7 @@ class TestUpdateConstraintDependenciesFormattingPreservation:
         update_constraint_dependencies(pyproject_path, constraints)
 
         content = pyproject_path.read_text()
-        assert "constraint_dependencies" in content
+        assert "constraint-dependencies" in content
         assert "requests==2.31.0" in content
 
 
@@ -636,7 +636,7 @@ class TestUpdateConstraintDependenciesEdgeCases:
 name = "test"
 
 [tool.uv]
-constraint_dependencies = ["requests[security]==2.30.0"]
+constraint-dependencies = ["requests[security]==2.30.0"]
 """
         pyproject_path = create_pyproject_file(content)
         new_constraints = ["requests==2.31.0"]
