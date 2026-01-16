@@ -38,13 +38,13 @@ from uv_import_constraint_dependencies.toml_handler import (
 @pytest.fixture
 def cli_runner() -> CliRunner:
     """Create a Click CLI runner for testing."""
-    return CliRunner(mix_stderr=False)
+    return CliRunner()
 
 
 @pytest.fixture
 def isolated_runner() -> CliRunner:
     """Create a Click CLI runner with isolated filesystem."""
-    return CliRunner(mix_stderr=False)
+    return CliRunner()
 
 
 # =============================================================================
@@ -95,14 +95,14 @@ class TestCLIHelpAndVersion:
         # Check for example patterns
         assert "constraints.txt" in result.output
 
-    def test_help_includes_no_merge_flag(
+    def test_help_includes_merge_flag(
         self,
         cli_runner: CliRunner,
     ) -> None:
-        """Test that help includes --no-merge flag documentation."""
+        """Test that help includes --merge flag documentation."""
         result = cli_runner.invoke(main, ["--help"])
         assert result.exit_code == 0
-        assert "--no-merge" in result.output
+        assert "--merge" in result.output
 
 
 # =============================================================================
@@ -333,13 +333,13 @@ class TestMissingFileErrors:
 class TestPyprojectUpdates:
     """Tests for pyproject.toml update behavior."""
 
-    def test_merge_with_existing_constraints(
+    def test_default_replaces_all(
         self,
         cli_runner: CliRunner,
         tmp_path: Path,
         pyproject_with_constraints: str,
     ) -> None:
-        """Test that new constraints are merged with existing ones."""
+        """Test that default behavior replaces all existing constraints."""
         constraints_content = "requests==2.31.0\nflask>=2.0.0"
         constraints_file = tmp_path / "constraints.txt"
         constraints_file.write_text(constraints_content, encoding="utf-8")
@@ -350,6 +350,37 @@ class TestPyprojectUpdates:
         result = cli_runner.invoke(main, [
             "-c", str(constraints_file),
             "-p", str(pyproject_file),
+        ])
+
+        assert result.exit_code == 0
+
+        doc = read_pyproject(pyproject_file)
+        constraints = get_constraint_dependencies(doc)
+
+        # Should only have new constraints (default is replace)
+        assert len(constraints) == 2
+        assert any("requests" in c for c in constraints)
+        assert any("flask" in c for c in constraints)
+        assert not any("existing-package" in c for c in constraints)
+
+    def test_merge_with_existing_constraints(
+        self,
+        cli_runner: CliRunner,
+        tmp_path: Path,
+        pyproject_with_constraints: str,
+    ) -> None:
+        """Test that --merge merges new constraints with existing ones."""
+        constraints_content = "requests==2.31.0\nflask>=2.0.0"
+        constraints_file = tmp_path / "constraints.txt"
+        constraints_file.write_text(constraints_content, encoding="utf-8")
+
+        pyproject_file = tmp_path / "pyproject.toml"
+        pyproject_file.write_text(pyproject_with_constraints, encoding="utf-8")
+
+        result = cli_runner.invoke(main, [
+            "-c", str(constraints_file),
+            "-p", str(pyproject_file),
+            "--merge",
         ])
 
         assert result.exit_code == 0
@@ -363,37 +394,6 @@ class TestPyprojectUpdates:
         assert any("another-package" in c for c in constraints)
         assert any("requests" in c for c in constraints)
         assert any("flask" in c for c in constraints)
-
-    def test_no_merge_replaces_all(
-        self,
-        cli_runner: CliRunner,
-        tmp_path: Path,
-        pyproject_with_constraints: str,
-    ) -> None:
-        """Test that --no-merge replaces all existing constraints."""
-        constraints_content = "requests==2.31.0\nflask>=2.0.0"
-        constraints_file = tmp_path / "constraints.txt"
-        constraints_file.write_text(constraints_content, encoding="utf-8")
-
-        pyproject_file = tmp_path / "pyproject.toml"
-        pyproject_file.write_text(pyproject_with_constraints, encoding="utf-8")
-
-        result = cli_runner.invoke(main, [
-            "-c", str(constraints_file),
-            "-p", str(pyproject_file),
-            "--no-merge",
-        ])
-
-        assert result.exit_code == 0
-
-        doc = read_pyproject(pyproject_file)
-        constraints = get_constraint_dependencies(doc)
-
-        # Should only have new constraints
-        assert len(constraints) == 2
-        assert any("requests" in c for c in constraints)
-        assert any("flask" in c for c in constraints)
-        assert not any("existing-package" in c for c in constraints)
 
     def test_preserves_pyproject_formatting(
         self,
@@ -467,6 +467,7 @@ class TestPyprojectUpdates:
         result = cli_runner.invoke(main, [
             "-c", str(constraints_file),
             "-p", str(pyproject_file),
+            "--merge",
         ])
 
         assert result.exit_code == 0
@@ -918,7 +919,7 @@ name = "my-project"
 version = "1.0.0"
 
 [tool.uv]
-constraint_dependencies = [
+constraint-dependencies = [
     "existing-package==1.0.0",
 ]
 
@@ -932,10 +933,11 @@ line-length = 88
         constraints_file = tmp_path / "constraints.txt"
         constraints_file.write_text("requests==2.31.0\nflask>=2.0.0", encoding="utf-8")
 
-        # Run CLI (merge by default)
+        # Run CLI with --merge
         result = cli_runner.invoke(main, [
             "-c", str(constraints_file),
             "-p", str(pyproject_file),
+            "--merge",
         ])
 
         # Verify
@@ -959,14 +961,14 @@ line-length = 88
         cli_runner: CliRunner,
         tmp_path: Path,
     ) -> None:
-        """Test complete workflow with --no-merge to replace all."""
+        """Test complete workflow with default replace behavior."""
         # Create initial pyproject.toml with constraints
         initial_pyproject = """\
 [project]
 name = "my-project"
 
 [tool.uv]
-constraint_dependencies = [
+constraint-dependencies = [
     "old-package==1.0.0",
     "another-old==2.0.0",
 ]
@@ -978,11 +980,10 @@ constraint_dependencies = [
         constraints_file = tmp_path / "constraints.txt"
         constraints_file.write_text("requests==2.31.0", encoding="utf-8")
 
-        # Run CLI with --no-merge
+        # Run CLI (default is replace)
         result = cli_runner.invoke(main, [
             "-c", str(constraints_file),
             "-p", str(pyproject_file),
-            "--no-merge",
         ])
 
         # Verify

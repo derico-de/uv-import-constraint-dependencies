@@ -162,14 +162,14 @@ dev-dependencies = ["pytest>=7.0"]
 
 @pytest.fixture
 def pyproject_with_constraints() -> str:
-    """pyproject.toml with existing constraint_dependencies."""
+    """pyproject.toml with existing constraint-dependencies."""
     return """\
 [project]
 name = "test-project"
 version = "0.1.0"
 
 [tool.uv]
-constraint_dependencies = [
+constraint-dependencies = [
     "existing-package==1.0.0",
     "another-package>=2.0.0",
 ]
@@ -189,7 +189,7 @@ description = "A test project"
 # Tool configurations
 [tool.uv]
 # These are the existing constraints
-constraint_dependencies = [
+constraint-dependencies = [
     "existing-package==1.0.0",
 ]
 

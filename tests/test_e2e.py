@@ -4,7 +4,7 @@ This module provides comprehensive E2E tests that verify the complete workflow:
 1. Create sample constraints.txt with test dependencies
 2. Create minimal pyproject.toml
 3. Run uv-import-constraint-dependencies -c constraints.txt
-4. Verify tool.uv.constraint_dependencies section exists with correct values
+4. Verify tool.uv.constraint-dependencies section exists with correct values
 
 These tests match the verification requirements from the spec's QA acceptance criteria.
 """
@@ -57,7 +57,7 @@ name = "test-project"
 version = "1.0.0"
 
 [tool.uv]
-constraint_dependencies = [
+constraint-dependencies = [
     "existing-package==1.0.0",
     "another-package>=2.0.0",
 ]
@@ -89,7 +89,7 @@ testpaths = ["tests"]
 @pytest.fixture
 def cli_runner() -> CliRunner:
     """Create a Click CLI runner for testing."""
-    return CliRunner(mix_stderr=False)
+    return CliRunner()
 
 
 @pytest.fixture
@@ -132,7 +132,7 @@ class TestE2EBasicUsage:
     1. Create sample constraints.txt with test dependencies
     2. Create minimal pyproject.toml
     3. Run uv-import-constraint-dependencies -c constraints.txt
-    4. Verify tool.uv.constraint_dependencies section exists with correct values
+    4. Verify tool.uv.constraint-dependencies section exists with correct values
     """
 
     def test_e2e_spec_sample_workflow(
@@ -161,7 +161,7 @@ class TestE2EBasicUsage:
         assert result.exit_code == 0, f"CLI failed: {result.output} {result.stderr}"
         assert "Successfully" in result.output
 
-        # Step 4: Verify tool.uv.constraint_dependencies section exists with correct values
+        # Step 4: Verify tool.uv.constraint-dependencies section exists with correct values
         assert pyproject_path.exists()
         doc = read_pyproject(pyproject_path)
         constraints = get_constraint_dependencies(doc)
@@ -173,7 +173,7 @@ class TestE2EBasicUsage:
         # Verify TOML structure
         assert "tool" in doc
         assert "uv" in doc["tool"]
-        assert "constraint_dependencies" in doc["tool"]["uv"]
+        assert "constraint-dependencies" in doc["tool"]["uv"]
 
     def test_e2e_creates_pyproject_if_missing(
         self,
@@ -249,22 +249,47 @@ mango-lib==3.0.0
 class TestE2EMergeFlow:
     """E2E tests for merging with existing constraints."""
 
+    def test_e2e_default_replaces_all(
+        self,
+        cli_runner: CliRunner,
+        create_e2e_project: Callable,
+    ) -> None:
+        """Test default behavior replaces all existing constraints."""
+        project_dir, constraints_path, pyproject_path = create_e2e_project(
+            "requests==2.31.0",
+            PYPROJECT_WITH_EXISTING_CONSTRAINTS,
+        )
+
+        result = cli_runner.invoke(main, [
+            "-c", str(constraints_path),
+            "-p", str(pyproject_path),
+        ])
+
+        assert result.exit_code == 0
+
+        doc = read_pyproject(pyproject_path)
+        constraints = get_constraint_dependencies(doc)
+
+        # Should only have new constraint (default is replace)
+        assert constraints == ["requests==2.31.0"]
+
     def test_e2e_merge_with_existing_constraints(
         self,
         cli_runner: CliRunner,
         create_e2e_project: Callable,
     ) -> None:
-        """Test merge flow: old and new constraints should both be present."""
+        """Test --merge flag: old and new constraints should both be present."""
         # Create project with existing constraints
         project_dir, constraints_path, pyproject_path = create_e2e_project(
             "requests==2.31.0\nflask>=2.0.0",
             PYPROJECT_WITH_EXISTING_CONSTRAINTS,
         )
 
-        # Run CLI (merge by default)
+        # Run CLI with --merge
         result = cli_runner.invoke(main, [
             "-c", str(constraints_path),
             "-p", str(pyproject_path),
+            "--merge",
         ])
 
         assert result.exit_code == 0
@@ -291,7 +316,7 @@ class TestE2EMergeFlow:
 name = "test-project"
 
 [tool.uv]
-constraint_dependencies = [
+constraint-dependencies = [
     "requests==2.0.0",
 ]
 """
@@ -303,6 +328,7 @@ constraint_dependencies = [
         result = cli_runner.invoke(main, [
             "-c", str(constraints_path),
             "-p", str(pyproject_path),
+            "--merge",
         ])
 
         assert result.exit_code == 0
@@ -313,31 +339,6 @@ constraint_dependencies = [
         # Should have new version, not old
         assert "requests==2.31.0" in constraints
         assert "requests==2.0.0" not in constraints
-
-    def test_e2e_no_merge_replaces_all(
-        self,
-        cli_runner: CliRunner,
-        create_e2e_project: Callable,
-    ) -> None:
-        """Test --no-merge flag replaces all existing constraints."""
-        project_dir, constraints_path, pyproject_path = create_e2e_project(
-            "requests==2.31.0",
-            PYPROJECT_WITH_EXISTING_CONSTRAINTS,
-        )
-
-        result = cli_runner.invoke(main, [
-            "-c", str(constraints_path),
-            "-p", str(pyproject_path),
-            "--no-merge",
-        ])
-
-        assert result.exit_code == 0
-
-        doc = read_pyproject(pyproject_path)
-        constraints = get_constraint_dependencies(doc)
-
-        # Should only have new constraint
-        assert constraints == ["requests==2.31.0"]
 
 
 # =============================================================================
@@ -421,7 +422,7 @@ class TestE2EFormattingPreservation:
         content = pyproject_path.read_text()
 
         # Multiple constraints should be on separate lines
-        assert "constraint_dependencies = [" in content
+        assert "constraint-dependencies = [" in content
 
 
 # =============================================================================
@@ -745,7 +746,7 @@ class TestE2ECLIInterface:
         assert "Usage:" in result.output
         assert "-c" in result.output or "--constraints" in result.output
         assert "pyproject.toml" in result.output
-        assert "constraint_dependencies" in result.output
+        assert "constraint-dependencies" in result.output
 
     def test_e2e_version_output(self, cli_runner: CliRunner) -> None:
         """Test --version output as specified in acceptance criteria."""
@@ -810,3 +811,150 @@ class TestE2EOutputMessages:
 
         assert result.exit_code == 0
         assert "1 constraint " in result.output  # Note the space to avoid matching "constraints"
+
+
+# =============================================================================
+# E2E Test: Real Local Files Integration
+# =============================================================================
+
+
+class TestE2ERealLocalFiles:
+    """E2E tests using real local example files from fixtures directory."""
+
+    @pytest.fixture
+    def fixtures_dir(self) -> Path:
+        """Get the path to the fixtures directory."""
+        return Path(__file__).parent / "fixtures"
+
+    def test_real_constraints_file_replace(
+        self,
+        cli_runner: CliRunner,
+        fixtures_dir: Path,
+        tmp_path: Path,
+    ) -> None:
+        """Test importing from real example constraints.txt file with replace mode."""
+        # Copy example pyproject.toml to temp directory
+        example_pyproject = fixtures_dir / "example_pyproject.toml"
+        target_pyproject = tmp_path / "pyproject.toml"
+        target_pyproject.write_text(example_pyproject.read_text(), encoding="utf-8")
+
+        # Use real constraints file
+        constraints_file = fixtures_dir / "example_constraints.txt"
+
+        # Run CLI (default replace mode)
+        result = cli_runner.invoke(main, [
+            "-c", str(constraints_file),
+            "-p", str(target_pyproject),
+        ])
+
+        assert result.exit_code == 0
+        assert "Successfully" in result.output
+
+        # Verify pyproject.toml was updated correctly
+        doc = read_pyproject(target_pyproject)
+        constraints = get_constraint_dependencies(doc)
+
+        # Should have 10 constraints (from example file, excluding -r/-c directives)
+        assert len(constraints) == 10
+
+        # Verify specific constraints are present
+        assert "requests==2.31.0" in constraints
+        assert any("numpy" in c for c in constraints)
+        assert any("flask" in c for c in constraints)
+        assert any("celery" in c for c in constraints)
+
+        # Verify environment markers are preserved
+        assert any('python_version >= "3.9"' in c for c in constraints)
+
+        # Verify extras are preserved
+        assert any("[async]" in c for c in constraints)
+        assert any("[redis,auth]" in c for c in constraints)
+
+        # Old constraints should be replaced
+        assert not any("old-package" in c for c in constraints)
+        assert not any("legacy-lib" in c for c in constraints)
+
+        # Other sections should be preserved
+        assert doc["project"]["name"] == "example-project"
+        assert "ruff" in doc["tool"]
+        assert "pytest" in doc["tool"]
+
+    def test_real_constraints_file_merge(
+        self,
+        cli_runner: CliRunner,
+        fixtures_dir: Path,
+        tmp_path: Path,
+    ) -> None:
+        """Test importing from real example constraints.txt file with merge mode."""
+        # Copy example pyproject.toml to temp directory
+        example_pyproject = fixtures_dir / "example_pyproject.toml"
+        target_pyproject = tmp_path / "pyproject.toml"
+        target_pyproject.write_text(example_pyproject.read_text(), encoding="utf-8")
+
+        # Use real constraints file
+        constraints_file = fixtures_dir / "example_constraints.txt"
+
+        # Run CLI with --merge
+        result = cli_runner.invoke(main, [
+            "-c", str(constraints_file),
+            "-p", str(target_pyproject),
+            "--merge",
+        ])
+
+        assert result.exit_code == 0
+        assert "Successfully" in result.output
+
+        # Verify pyproject.toml was updated correctly
+        doc = read_pyproject(target_pyproject)
+        constraints = get_constraint_dependencies(doc)
+
+        # Should have 12 constraints (10 new + 2 old that weren't replaced)
+        assert len(constraints) == 12
+
+        # Verify new constraints are present
+        assert "requests==2.31.0" in constraints
+        assert any("flask" in c for c in constraints)
+
+        # Old constraints should be preserved (since they have different package names)
+        assert any("old-package" in c for c in constraints)
+        assert any("legacy-lib" in c for c in constraints)
+
+        # Comments in pyproject.toml should be preserved
+        content = target_pyproject.read_text()
+        assert "# Example pyproject.toml for testing" in content
+        assert "# Existing tool configurations" in content
+
+    def test_real_constraints_to_new_pyproject(
+        self,
+        cli_runner: CliRunner,
+        fixtures_dir: Path,
+        tmp_path: Path,
+    ) -> None:
+        """Test importing from real constraints file to new pyproject.toml."""
+        # Use real constraints file
+        constraints_file = fixtures_dir / "example_constraints.txt"
+        target_pyproject = tmp_path / "pyproject.toml"
+
+        # pyproject.toml doesn't exist yet
+        assert not target_pyproject.exists()
+
+        # Run CLI
+        result = cli_runner.invoke(main, [
+            "-c", str(constraints_file),
+            "-p", str(target_pyproject),
+        ])
+
+        assert result.exit_code == 0
+        assert target_pyproject.exists()
+
+        # Verify constraints were imported
+        doc = read_pyproject(target_pyproject)
+        constraints = get_constraint_dependencies(doc)
+
+        assert len(constraints) == 10
+        assert "requests==2.31.0" in constraints
+
+        # Constraints should be sorted alphabetically
+        package_names = [c.split("==")[0].split(">=")[0].split("<")[0].split("[")[0].split(";")[0].strip()
+                        for c in constraints]
+        assert package_names == sorted(package_names, key=str.lower)

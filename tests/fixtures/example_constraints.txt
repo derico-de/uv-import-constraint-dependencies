@@ -1,0 +1,24 @@
+# Example constraints file for testing
+# Production dependencies
+requests==2.31.0
+urllib3>=1.26.0,<2.0.0
+certifi>=2023.7.22
+
+# Data processing with environment markers
+numpy==1.24.3 ; python_version >= "3.9"
+pandas>=2.0.0 ; sys_platform != "win32"
+
+# Database
+psycopg2-binary==2.9.9
+
+# Web framework with extras
+flask[async]==2.3.3
+django>=4.2.0,<5.0.0
+
+# Include directives (should be skipped)
+-r base-requirements.txt
+-c other-constraints.txt
+
+# Packages with inline comments
+celery[redis,auth]>=5.3.0  # Task queue
+uvicorn[standard]>=0.23.0  # ASGI server

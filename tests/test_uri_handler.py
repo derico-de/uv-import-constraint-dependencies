@@ -144,11 +144,11 @@ class TestIsUriEdgeCases:
         assert is_uri("https://") is True
 
     def test_case_insensitive_scheme(self) -> None:
-        """Test that scheme detection is case-sensitive (urlparse behavior)."""
-        # urlparse treats schemes case-sensitively for scheme extraction
-        # but HTTP/HTTPS are typically lowercase in practice
-        assert is_uri("HTTPS://example.com/file.txt") is False
-        assert is_uri("Http://example.com/file.txt") is False
+        """Test that scheme detection is case-insensitive (RFC 3986 compliant)."""
+        # Python's urlparse normalizes schemes to lowercase
+        # URI schemes should be case-insensitive per RFC 3986
+        assert is_uri("HTTPS://example.com/file.txt") is True
+        assert is_uri("Http://example.com/file.txt") is True
 
     def test_uri_with_authentication(self) -> None:
         """Test that URIs with user authentication are detected."""

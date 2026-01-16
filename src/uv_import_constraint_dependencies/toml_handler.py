@@ -108,7 +108,7 @@ def read_pyproject(pyproject_path: Path) -> TOMLDocument:
         raise TOMLError(f"Failed to parse {pyproject_path}: {e}") from e
 
 
-def get_constraint-dependencies(doc: TOMLDocument) -> List[str]:
+def get_constraint_dependencies(doc: TOMLDocument) -> List[str]:
     """
     Get existing constraint-dependencies from a parsed TOML document.
 
@@ -120,7 +120,7 @@ def get_constraint-dependencies(doc: TOMLDocument) -> List[str]:
 
     Examples:
         >>> doc = read_pyproject(Path('pyproject.toml'))
-        >>> get_constraint-dependencies(doc)
+        >>> get_constraint_dependencies(doc)
         ['requests==2.31.0', 'flask>=2.0.0']
     """
     try:
@@ -141,7 +141,7 @@ def get_constraint-dependencies(doc: TOMLDocument) -> List[str]:
         return []
 
 
-def update_constraint-dependencies(
+def update_constraint_dependencies(
     pyproject_path: Path,
     constraints: List[str],
     merge: bool = True,
@@ -164,7 +164,7 @@ def update_constraint-dependencies(
         TOMLError: If the file cannot be read, parsed, or written.
 
     Examples:
-        >>> update_constraint-dependencies(
+        >>> update_constraint_dependencies(
         ...     Path('pyproject.toml'),
         ...     ['requests==2.31.0', 'flask>=2.0.0'],
         ...     merge=True
@@ -190,7 +190,7 @@ def update_constraint-dependencies(
 
     # Handle merge behavior
     if merge:
-        existing = get_constraint-dependencies(doc)
+        existing = get_constraint_dependencies(doc)
         if existing:
             # Get package names from new constraints
             new_package_names = _get_existing_package_names(constraints)
@@ -209,7 +209,7 @@ def update_constraint-dependencies(
             constraints = sorted(merged, key=lambda c: _extract_package_name(c))
 
     # Sort constraints alphabetically if not already sorted
-    if not merge or not get_constraint-dependencies(doc):
+    if not merge or not get_constraint_dependencies(doc):
         constraints = sorted(constraints, key=lambda c: _extract_package_name(c))
 
     # Create a properly formatted array
