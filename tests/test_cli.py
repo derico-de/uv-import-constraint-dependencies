@@ -1063,3 +1063,514 @@ class TestDefaultPyprojectPath:
 
         finally:
             os.chdir(original_dir)
+
+
+# =============================================================================
+# Test Custom Constraints
+# =============================================================================
+
+
+class TestCustomConstraints:
+    """Tests for custom constraints file merging via CLI."""
+
+    def test_help_includes_custom_constraints_option(
+        self,
+        cli_runner: CliRunner,
+    ) -> None:
+        """Test that help includes --custom-constraints flag documentation."""
+        result = cli_runner.invoke(main, ["--help"])
+        assert result.exit_code == 0
+        assert "--custom-constraints" in result.output or "--cc" in result.output
+        assert "custom" in result.output.lower()
+
+    def test_cli_with_custom_constraints_basic_merge(
+        self,
+        cli_runner: CliRunner,
+        tmp_path: Path,
+        basic_constraints_content: str,
+        custom_constraints_basic: str,
+        minimal_pyproject_content: str,
+    ) -> None:
+        """Test full workflow with both base and custom constraint files.
+
+        Both files have different packages, so result should be union of both.
+        """
+        # Create base constraints file
+        constraints_file = tmp_path / "constraints.txt"
+        constraints_file.write_text(basic_constraints_content, encoding="utf-8")
+
+        # Create custom constraints file
+        custom_file = tmp_path / "custom-constraints.txt"
+        custom_file.write_text(custom_constraints_basic, encoding="utf-8")
+
+        # Create pyproject.toml
+        pyproject_file = tmp_path / "pyproject.toml"
+        pyproject_file.write_text(minimal_pyproject_content, encoding="utf-8")
+
+        result = cli_runner.invoke(main, [
+            "-c", str(constraints_file),
+            "--custom-constraints", str(custom_file),
+            "-p", str(pyproject_file),
+        ])
+
+        assert result.exit_code == 0
+        assert "Successfully" in result.output
+
+        # Verify pyproject.toml contains union of both constraint sets
+        doc = read_pyproject(pyproject_file)
+        constraints = get_constraint_dependencies(doc)
+
+        # From basic_constraints_content: requests, urllib3, certifi
+        assert any("requests" in c for c in constraints)
+        assert any("urllib3" in c for c in constraints)
+        assert any("certifi" in c for c in constraints)
+
+        # From custom_constraints_basic: django, celery, redis
+        assert any("django" in c for c in constraints)
+        assert any("celery" in c for c in constraints)
+        assert any("redis" in c for c in constraints)
+
+    def test_cli_custom_constraints_override(
+        self,
+        cli_runner: CliRunner,
+        tmp_path: Path,
+        basic_constraints_content: str,
+        custom_constraints_override: str,
+        minimal_pyproject_content: str,
+    ) -> None:
+        """Test that custom constraints override base constraints for same package.
+
+        Base has requests==2.31.0, custom has requests==2.32.0.
+        Result should have requests==2.32.0.
+        """
+        # Create base constraints file
+        constraints_file = tmp_path / "constraints.txt"
+        constraints_file.write_text(basic_constraints_content, encoding="utf-8")
+
+        # Create custom constraints file that overrides some packages
+        custom_file = tmp_path / "custom-constraints.txt"
+        custom_file.write_text(custom_constraints_override, encoding="utf-8")
+
+        # Create pyproject.toml
+        pyproject_file = tmp_path / "pyproject.toml"
+        pyproject_file.write_text(minimal_pyproject_content, encoding="utf-8")
+
+        result = cli_runner.invoke(main, [
+            "-c", str(constraints_file),
+            "--custom-constraints", str(custom_file),
+            "-p", str(pyproject_file),
+        ])
+
+        assert result.exit_code == 0
+
+        doc = read_pyproject(pyproject_file)
+        constraints = get_constraint_dependencies(doc)
+
+        # requests should be the custom version (2.32.0), not base (2.31.0)
+        assert "requests==2.32.0" in constraints
+        assert "requests==2.31.0" not in constraints
+
+        # urllib3 should be the custom version (>=2.0.0), not base (>=1.26.0,<2.0.0)
+        assert "urllib3>=2.0.0" in constraints
+        assert "urllib3>=1.26.0,<2.0.0" not in constraints
+
+        # certifi should be from base (not in custom)
+        assert any("certifi" in c for c in constraints)
+
+    def test_cli_custom_constraints_missing_file_error(
+        self,
+        cli_runner: CliRunner,
+        tmp_path: Path,
+        basic_constraints_content: str,
+        minimal_pyproject_content: str,
+    ) -> None:
+        """Test error handling when custom constraints file doesn't exist."""
+        # Create base constraints file
+        constraints_file = tmp_path / "constraints.txt"
+        constraints_file.write_text(basic_constraints_content, encoding="utf-8")
+
+        # Create pyproject.toml
+        pyproject_file = tmp_path / "pyproject.toml"
+        pyproject_file.write_text(minimal_pyproject_content, encoding="utf-8")
+
+        # Reference a non-existent custom constraints file
+        nonexistent_custom = tmp_path / "nonexistent-custom.txt"
+
+        result = cli_runner.invoke(main, [
+            "-c", str(constraints_file),
+            "--custom-constraints", str(nonexistent_custom),
+            "-p", str(pyproject_file),
+        ])
+
+        assert result.exit_code == 1
+        assert "Error" in result.stderr or "error" in result.stderr.lower()
+        assert "not found" in result.stderr.lower() or "nonexistent" in result.stderr
+
+    def test_cli_custom_constraints_is_directory_error(
+        self,
+        cli_runner: CliRunner,
+        tmp_path: Path,
+        basic_constraints_content: str,
+        minimal_pyproject_content: str,
+    ) -> None:
+        """Test error handling when custom constraints path is a directory."""
+        # Create base constraints file
+        constraints_file = tmp_path / "constraints.txt"
+        constraints_file.write_text(basic_constraints_content, encoding="utf-8")
+
+        # Create pyproject.toml
+        pyproject_file = tmp_path / "pyproject.toml"
+        pyproject_file.write_text(minimal_pyproject_content, encoding="utf-8")
+
+        # Create a directory instead of a file
+        custom_dir = tmp_path / "custom-dir"
+        custom_dir.mkdir()
+
+        result = cli_runner.invoke(main, [
+            "-c", str(constraints_file),
+            "--custom-constraints", str(custom_dir),
+            "-p", str(pyproject_file),
+        ])
+
+        assert result.exit_code == 1
+        assert "Error" in result.stderr or "error" in result.stderr.lower()
+
+    def test_cli_merge_plus_custom_constraints(
+        self,
+        cli_runner: CliRunner,
+        tmp_path: Path,
+        custom_constraints_basic: str,
+    ) -> None:
+        """Test combined --merge and --custom-constraints behavior.
+
+        pyproject.toml has existing-package and another-package.
+        Base constraints has new packages.
+        Custom constraints has additional packages.
+        Result should have all packages merged.
+        """
+        # Create base constraints file
+        base_content = "flask==2.3.0\nrequests==2.31.0"
+        constraints_file = tmp_path / "constraints.txt"
+        constraints_file.write_text(base_content, encoding="utf-8")
+
+        # Create custom constraints file
+        custom_file = tmp_path / "custom-constraints.txt"
+        custom_file.write_text(custom_constraints_basic, encoding="utf-8")
+
+        # Create pyproject.toml with existing constraints using correct key format
+        # Note: tool.uv uses 'constraint-dependencies' (hyphen), not 'constraint_dependencies'
+        pyproject_content = """\
+[project]
+name = "test-project"
+version = "0.1.0"
+
+[tool.uv]
+constraint-dependencies = [
+    "existing-package==1.0.0",
+    "another-package>=2.0.0",
+]
+"""
+        pyproject_file = tmp_path / "pyproject.toml"
+        pyproject_file.write_text(pyproject_content, encoding="utf-8")
+
+        result = cli_runner.invoke(main, [
+            "-c", str(constraints_file),
+            "--custom-constraints", str(custom_file),
+            "-p", str(pyproject_file),
+            # merge is now default, no flag needed
+        ])
+
+        assert result.exit_code == 0
+
+        doc = read_pyproject(pyproject_file)
+        constraints = get_constraint_dependencies(doc)
+
+        # From existing pyproject.toml: existing-package, another-package
+        assert any("existing-package" in c for c in constraints)
+        assert any("another-package" in c for c in constraints)
+
+        # From base constraints: flask, requests
+        assert any("flask" in c for c in constraints)
+        assert any("requests" in c for c in constraints)
+
+        # From custom constraints: django, celery, redis
+        assert any("django" in c for c in constraints)
+        assert any("celery" in c for c in constraints)
+        assert any("redis" in c for c in constraints)
+
+    def test_cli_custom_constraints_short_option(
+        self,
+        cli_runner: CliRunner,
+        tmp_path: Path,
+        basic_constraints_content: str,
+        custom_constraints_basic: str,
+        minimal_pyproject_content: str,
+    ) -> None:
+        """Test that --cc short option works for custom constraints."""
+        # Create base constraints file
+        constraints_file = tmp_path / "constraints.txt"
+        constraints_file.write_text(basic_constraints_content, encoding="utf-8")
+
+        # Create custom constraints file
+        custom_file = tmp_path / "custom-constraints.txt"
+        custom_file.write_text(custom_constraints_basic, encoding="utf-8")
+
+        # Create pyproject.toml
+        pyproject_file = tmp_path / "pyproject.toml"
+        pyproject_file.write_text(minimal_pyproject_content, encoding="utf-8")
+
+        result = cli_runner.invoke(main, [
+            "-c", str(constraints_file),
+            "--cc", str(custom_file),
+            "-p", str(pyproject_file),
+        ])
+
+        assert result.exit_code == 0
+        assert "Successfully" in result.output
+
+        # Verify merge happened
+        doc = read_pyproject(pyproject_file)
+        constraints = get_constraint_dependencies(doc)
+        assert any("django" in c for c in constraints)
+
+    def test_cli_custom_constraints_empty_file(
+        self,
+        cli_runner: CliRunner,
+        tmp_path: Path,
+        basic_constraints_content: str,
+        custom_constraints_empty: str,
+        minimal_pyproject_content: str,
+    ) -> None:
+        """Test handling when custom constraints file is empty.
+
+        Result should only contain base constraints.
+        """
+        # Create base constraints file
+        constraints_file = tmp_path / "constraints.txt"
+        constraints_file.write_text(basic_constraints_content, encoding="utf-8")
+
+        # Create empty custom constraints file
+        custom_file = tmp_path / "custom-constraints.txt"
+        custom_file.write_text(custom_constraints_empty, encoding="utf-8")
+
+        # Create pyproject.toml
+        pyproject_file = tmp_path / "pyproject.toml"
+        pyproject_file.write_text(minimal_pyproject_content, encoding="utf-8")
+
+        result = cli_runner.invoke(main, [
+            "-c", str(constraints_file),
+            "--custom-constraints", str(custom_file),
+            "-p", str(pyproject_file),
+        ])
+
+        assert result.exit_code == 0
+
+        doc = read_pyproject(pyproject_file)
+        constraints = get_constraint_dependencies(doc)
+
+        # Should have only base constraints
+        assert len(constraints) == 3
+        assert any("requests" in c for c in constraints)
+        assert any("urllib3" in c for c in constraints)
+        assert any("certifi" in c for c in constraints)
+
+    def test_cli_custom_constraints_comments_only(
+        self,
+        cli_runner: CliRunner,
+        tmp_path: Path,
+        basic_constraints_content: str,
+        custom_constraints_comments_only: str,
+        minimal_pyproject_content: str,
+    ) -> None:
+        """Test handling when custom constraints file has only comments.
+
+        Result should only contain base constraints.
+        """
+        # Create base constraints file
+        constraints_file = tmp_path / "constraints.txt"
+        constraints_file.write_text(basic_constraints_content, encoding="utf-8")
+
+        # Create custom constraints file with only comments
+        custom_file = tmp_path / "custom-constraints.txt"
+        custom_file.write_text(custom_constraints_comments_only, encoding="utf-8")
+
+        # Create pyproject.toml
+        pyproject_file = tmp_path / "pyproject.toml"
+        pyproject_file.write_text(minimal_pyproject_content, encoding="utf-8")
+
+        result = cli_runner.invoke(main, [
+            "-c", str(constraints_file),
+            "--custom-constraints", str(custom_file),
+            "-p", str(pyproject_file),
+        ])
+
+        assert result.exit_code == 0
+
+        doc = read_pyproject(pyproject_file)
+        constraints = get_constraint_dependencies(doc)
+
+        # Should have only base constraints
+        assert len(constraints) == 3
+
+    def test_cli_custom_constraints_case_insensitive_override(
+        self,
+        cli_runner: CliRunner,
+        tmp_path: Path,
+        basic_constraints_content: str,
+        custom_constraints_case_mismatch: str,
+        minimal_pyproject_content: str,
+    ) -> None:
+        """Test case-insensitive package name matching during merge.
+
+        Base has 'requests', custom has 'Requests'. Custom should override.
+        """
+        # Create base constraints file
+        constraints_file = tmp_path / "constraints.txt"
+        constraints_file.write_text(basic_constraints_content, encoding="utf-8")
+
+        # Create custom constraints file with different case
+        custom_file = tmp_path / "custom-constraints.txt"
+        custom_file.write_text(custom_constraints_case_mismatch, encoding="utf-8")
+
+        # Create pyproject.toml
+        pyproject_file = tmp_path / "pyproject.toml"
+        pyproject_file.write_text(minimal_pyproject_content, encoding="utf-8")
+
+        result = cli_runner.invoke(main, [
+            "-c", str(constraints_file),
+            "--custom-constraints", str(custom_file),
+            "-p", str(pyproject_file),
+        ])
+
+        assert result.exit_code == 0
+
+        doc = read_pyproject(pyproject_file)
+        constraints = get_constraint_dependencies(doc)
+
+        # Should have the custom version (2.32.0), not base (2.31.0)
+        # Package name case is preserved from custom
+        assert any("Requests==2.32.0" in c for c in constraints) or \
+               any("requests==2.32.0" in c.lower() for c in constraints)
+        assert not any("requests==2.31.0" in c.lower() for c in constraints)
+
+        # Django from custom
+        assert any("django" in c.lower() for c in constraints)
+
+    def test_cli_custom_constraints_mixed_merge(
+        self,
+        cli_runner: CliRunner,
+        tmp_path: Path,
+        basic_constraints_content: str,
+        custom_constraints_mixed: str,
+        minimal_pyproject_content: str,
+        expected_mixed_merge: list[str],
+    ) -> None:
+        """Test mixed merge with both override and new packages.
+
+        - requests: overrides base version
+        - django, celery: new packages unique to custom
+        - urllib3, certifi: from base (not in custom)
+        """
+        # Create base constraints file
+        constraints_file = tmp_path / "constraints.txt"
+        constraints_file.write_text(basic_constraints_content, encoding="utf-8")
+
+        # Create custom constraints file
+        custom_file = tmp_path / "custom-constraints.txt"
+        custom_file.write_text(custom_constraints_mixed, encoding="utf-8")
+
+        # Create pyproject.toml
+        pyproject_file = tmp_path / "pyproject.toml"
+        pyproject_file.write_text(minimal_pyproject_content, encoding="utf-8")
+
+        result = cli_runner.invoke(main, [
+            "-c", str(constraints_file),
+            "--custom-constraints", str(custom_file),
+            "-p", str(pyproject_file),
+        ])
+
+        assert result.exit_code == 0
+
+        doc = read_pyproject(pyproject_file)
+        constraints = get_constraint_dependencies(doc)
+
+        # Verify expected result
+        assert constraints == expected_mixed_merge
+
+    def test_cli_custom_constraints_with_extras(
+        self,
+        cli_runner: CliRunner,
+        tmp_path: Path,
+        basic_constraints_content: str,
+        custom_constraints_with_extras: str,
+        minimal_pyproject_content: str,
+    ) -> None:
+        """Test custom constraints with package extras override base packages.
+
+        Base has 'requests==2.31.0', custom has 'requests[security]==2.32.0'.
+        Custom should override, treating them as same package by name.
+        """
+        # Create base constraints file
+        constraints_file = tmp_path / "constraints.txt"
+        constraints_file.write_text(basic_constraints_content, encoding="utf-8")
+
+        # Create custom constraints file with extras
+        custom_file = tmp_path / "custom-constraints.txt"
+        custom_file.write_text(custom_constraints_with_extras, encoding="utf-8")
+
+        # Create pyproject.toml
+        pyproject_file = tmp_path / "pyproject.toml"
+        pyproject_file.write_text(minimal_pyproject_content, encoding="utf-8")
+
+        result = cli_runner.invoke(main, [
+            "-c", str(constraints_file),
+            "--custom-constraints", str(custom_file),
+            "-p", str(pyproject_file),
+        ])
+
+        assert result.exit_code == 0
+
+        doc = read_pyproject(pyproject_file)
+        constraints = get_constraint_dependencies(doc)
+
+        # Custom version with extras should be present
+        assert "requests[security]==2.32.0" in constraints
+        # Base version should not be present
+        assert "requests==2.31.0" not in constraints
+        # Celery with extras from custom
+        assert any("celery[redis,auth]" in c for c in constraints)
+
+    def test_cli_no_custom_constraints_uses_base_only(
+        self,
+        cli_runner: CliRunner,
+        tmp_path: Path,
+        basic_constraints_content: str,
+        minimal_pyproject_content: str,
+    ) -> None:
+        """Test that not providing --custom-constraints uses only base constraints.
+
+        This ensures backward compatibility.
+        """
+        # Create base constraints file
+        constraints_file = tmp_path / "constraints.txt"
+        constraints_file.write_text(basic_constraints_content, encoding="utf-8")
+
+        # Create pyproject.toml
+        pyproject_file = tmp_path / "pyproject.toml"
+        pyproject_file.write_text(minimal_pyproject_content, encoding="utf-8")
+
+        result = cli_runner.invoke(main, [
+            "-c", str(constraints_file),
+            "-p", str(pyproject_file),
+        ])
+
+        assert result.exit_code == 0
+
+        doc = read_pyproject(pyproject_file)
+        constraints = get_constraint_dependencies(doc)
+
+        # Should have exactly the base constraints
+        assert len(constraints) == 3
+        assert "requests==2.31.0" in constraints
+        assert "urllib3>=1.26.0,<2.0.0" in constraints
+        assert "certifi>=2023.7.22" in constraints
