@@ -1277,7 +1277,7 @@ constraint-dependencies = [
             "-c", str(constraints_file),
             "--custom-constraints", str(custom_file),
             "-p", str(pyproject_file),
-            # merge is now default, no flag needed
+            "--merge",  # Explicitly merge with existing pyproject.toml constraints
         ])
 
         assert result.exit_code == 0

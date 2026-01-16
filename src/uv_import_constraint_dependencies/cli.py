@@ -79,11 +79,10 @@ def _read_constraints(constraints_path: str) -> str:
     help='Path to pyproject.toml file.',
 )
 @click.option(
-    '--no-merge',
-    'no_merge',
+    '--merge',
     is_flag=True,
     default=False,
-    help='Replace all existing constraints instead of merging.',
+    help='Merge with existing constraint-dependencies instead of replacing.',
 )
 @click.option(
     '--cc',
@@ -96,7 +95,7 @@ def _read_constraints(constraints_path: str) -> str:
 def main(
     constraints: str,
     pyproject: str,
-    no_merge: bool,
+    merge: bool,
     custom_constraints: Optional[str],
 ) -> None:
     """Import constraints.txt into pyproject.toml as tool.uv.constraint-dependencies.
@@ -156,8 +155,7 @@ def main(
             click.echo("No constraints found in the input file.", err=True)
             sys.exit(0)
 
-        # Update pyproject.toml (merge=True by default unless --no-merge is specified)
-        merge = not no_merge
+        # Update pyproject.toml (replace by default, merge if --merge is specified)
         update_constraint_dependencies(pyproject_path, parsed_constraints, merge=merge)
 
         # Report success

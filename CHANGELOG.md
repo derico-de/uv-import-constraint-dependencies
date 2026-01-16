@@ -7,10 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.1] - 2025-01-15
 
-### Changed
+### Added
 
-- Default behavior changed from merge to replace mode
-- Replaced `--no-merge` flag with `--merge` flag for explicit merge behavior
+- Custom constraints support via `--cc` / `--custom-constraints` flag to override base constraints with local customizations
+- `--merge` flag to merge with existing pyproject.toml constraints (default is replace)
 
 ### Fixed
 

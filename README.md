@@ -41,6 +41,7 @@ uv-import-constraint-dependencies -c https://example.com/constraints.txt
 |--------|-------|-------------|
 | `--constraints` | `-c` | Path or URI to constraints.txt file (required) |
 | `--pyproject` | `-p` | Path to pyproject.toml file (default: `pyproject.toml`) |
+| `--custom-constraints` | `--cc` | Path to local custom constraints file for overriding base constraints |
 | `--merge` | | Merge with existing constraint-dependencies instead of replacing |
 | `--version` | | Show version information |
 | `--help` | | Show help message |
@@ -59,11 +60,17 @@ uv-import-constraint-dependencies -c constraints.txt -p path/to/pyproject.toml
 uv-import-constraint-dependencies -c constraints.txt --merge
 ```
 
+**Override base constraints with local customizations:**
+
+```bash
+uv-import-constraint-dependencies -c https://example.com/constraints.txt --cc custom-constraints.txt
+```
+
 ## Behavior
 
 ### Replace Mode (Default)
 
-By default, all existing `constraint-dependencies` are replaced with the new ones from the constraints file.
+By default, all existing `constraint-dependencies` in pyproject.toml are replaced with the new ones from the constraints file.
 
 ### Merge Mode (`--merge`)
 
@@ -72,6 +79,35 @@ When using `--merge`, new constraints are merged with existing ones in `tool.uv.
 - Existing packages are updated with the new version specifier
 - Packages not in the new constraints file are preserved
 - Constraints are sorted alphabetically
+
+### Custom Constraints (`--cc`)
+
+The `--cc` (or `--custom-constraints`) option allows you to override specific packages from the base constraints file with local customizations. This is useful when:
+
+- You use a shared/remote constraints file but need different versions for specific packages
+- You want to test newer versions of certain dependencies without modifying the base file
+
+**How it works:**
+1. Base constraints are loaded from `-c` (can be local or remote)
+2. Custom constraints from `--cc` are merged on top (custom takes precedence)
+3. The combined result is then merged with or replaces existing pyproject.toml constraints (depending on `--no-merge`)
+
+**Example workflow:**
+
+```bash
+# Remote base constraints + local overrides
+uv-import-constraint-dependencies -c https://example.com/constraints.txt --cc custom-constraints.txt
+```
+
+**Example custom-constraints.txt:**
+
+```text
+# Override requests version from base constraints
+requests==2.32.0
+
+# Add a package not in base constraints
+my-internal-package==1.0.0
+```
 
 ### Constraints File Format
 
