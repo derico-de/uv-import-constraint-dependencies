@@ -151,3 +151,7 @@ constraint-dependencies = [
 ## License
 
 MIT
+
+## Authors
+
+- Maik Derstappen - md@derico.de - https://derico.de
