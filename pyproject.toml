@@ -23,6 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Build Tools",
 ]
 dependencies = [
@@ -40,8 +41,8 @@ dev = [
 uv-import-constraint-dependencies = "uv_import_constraint_dependencies.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/MrTango/uv-import-constraint-dependencies"
-Repository = "https://github.com/MrTango/uv-import-constraint-dependencies"
+Homepage = "https://github.com/derico-de/uv-import-constraint-dependencies"
+Repository = "https://github.com/derico-de/uv-import-constraint-dependencies"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/uv_import_constraint_dependencies"]
